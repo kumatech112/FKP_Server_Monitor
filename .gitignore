@@ -1,0 +1,20 @@
+# Source stays here; runtime data and temporary build output do not.
+release/*
+!release/README.md
+bin/
+obj/
+build/
+dist/
+artifacts/
+TestResults/
+.vs/
+.vscode/
+__pycache__/
+*.pyc
+*.pdb
+*.tmp
+*.log
+*.user
+*.suo
+Thumbs.db
+Desktop.ini
