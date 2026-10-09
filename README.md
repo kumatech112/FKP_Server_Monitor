@@ -1,57 +1,59 @@
 # Server Bot Tracker
 
-A Thai Windows GUI for checking many servers without entering individual ping commands. Each saved entry supports ICMP, TCP, or both; use multiple entries to check multiple ports on the same host.
+A Thai Windows dashboard for checking multiple servers with ping. Add a name and IP/hostname, then read the green **ผ่าน** or red **ไม่ผ่าน** result. No service-port setup or report export.
 
 ## Run
 
-Double-click `release/ServerBotTracker.exe`. Keep its `.exe.config` alongside it. Requires Windows with .NET Framework 4.8 or newer. No administrator privileges, Python, .NET SDK, external NuGet packages, or console commands are needed to run it.
+Double-click `release/ServerBotTracker.exe`. Keep its `.exe.config` beside it. Requires Windows with .NET Framework 4.8 or newer. No Python, SDK, administrator rights or terminal is needed to run the app.
 
-- Add, edit, delete, or paste multiple IP addresses / hostnames.
-- Check all servers or selected rows; filter by name or host.
-- Set a 500–15,000 ms timeout and a 5–3,600 second automatic interval.
-- See separate ICMP/TCP results, elapsed times, the resolved address, and check timestamps.
-- Stop an active cycle, or close the window safely while checks run.
-- Export the latest results for all entries to a Thai UTF-8 CSV.
+- Add, edit, delete or paste multiple server addresses.
+- Check all entries or selected rows; search by name or host.
+- See pass/fail, round-trip time and last-check timestamp.
+- Enable automatic checking or stop an active cycle.
+- Configure a 500–15,000 ms timeout and a 5–3,600 second interval.
 
-Automatic checking is off on every launch. Enabling it checks immediately, then waits the configured interval **after a cycle finishes**. Cycles do not overlap. Search only changes what is visible: “check all” and CSV export still include the entire list.
+One ICMP echo request is sent per server per cycle, using the same protocol as ordinary Windows ping. Automatic checking is off at launch. Enabling it checks immediately, then waits the configured interval after each cycle finishes. Cycles never overlap. Search filters the view; “check all” still checks the entire list.
 
-## Keep the project clean
+## Project layout
 
 ```text
 Server_Bot_Tracker/
-  src/                 Application source and Windows manifest
-  docs/                Thai user guide, architecture and verification record
+  src/                 Complete application source
+  docs/                Thai guide, data flow and verification
   tools/               Build and verification scripts
     checks/            Maintained verification source
-  release/             Ready-to-run EXE and runtime config (Git-ignored)
+  release/             Ready-to-run app; binaries are Git-ignored
   README.md
   .gitignore
+  .gitattributes
   .editorconfig
 ```
 
-Only source, documentation, scripts, and the release guide belong in Git. Tests are maintained under `tools/checks`; removing them would make later changes harder to verify. Build staging is created outside the project and removed after each build. Screenshots, test fixtures, and verification reports stay outside the project at `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\verification-*`.
+Build staging is created outside the project and removed after compilation. Screenshots, verification binaries and fixtures stay at `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\verification-*`. Git tracks source, docs and developer tools; it excludes generated files and user settings.
 
-User server lists and preferences live at `%LOCALAPPDATA%\Kuma\ServerBotTracker\servers.json`; `.bak` contains the preceding saved version. Saving uses an atomic replacement. Unreadable or corrupt existing data produces a Thai startup error and is preserved. Close the app before copying / restoring a settings file.
+## Saved server lists
 
-The release folder is a copyable application folder, not an installer and not a backup of user settings. Git can reproduce the source and build; the ignored release binaries must be built or distributed separately.
+Names, addresses and preferences are stored per Windows user at `%LOCALAPPDATA%\Kuma\ServerBotTracker\servers.json`. Atomic save retains the preceding version as `servers.json.bak`. Corrupt or unsupported settings are reported and preserved.
+
+Version 1.1 reads the previous version's saved lists without discarding IDs, names or addresses. Old port/method fields are ignored. Loading does not rewrite the file; the next normal save uses schema version 2 and backs up the original. Existing duplicate-host entries are preserved; bulk entry skips new duplicate hosts.
+
+Copy the release folder to distribute the app. Transfer settings separately, with the app closed, if the destination should use the same list. Results are memory-only and start as “ยังไม่ตรวจ” after each launch.
 
 ## Build and verify
-
-From the project folder on Windows:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Build.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify.ps1
 ```
 
-The execution-policy option applies only to these PowerShell processes. The machine's execution policy is not changed. The build uses Windows' installed Framework C# compiler, treats compiler warnings as errors, and copies only the executable and runtime config to `release`. Verification loads a byte-identical copy of the release executable, exercises real loopback networking and GUI workflows, records screenshots, and launches the real entry point.
+These commands change no machine execution-policy setting. The build uses Windows' installed Framework C# compiler and treats warnings as errors. Verification exercises a byte-identical copy of the release executable under a real GUI message loop, then launches its actual entry point.
 
-## Reading results
+## Result meaning
 
-ICMP success means the selected IP responds to an echo request. TCP success means a TCP connection to the selected IP and port completed. Neither alone confirms application health. Blocked ICMP, a firewall, DNS failure, a closed port, or a timeout can cause failed checks; the app does not claim the server is powered off.
+**ผ่าน** means an ICMP echo reply was received; **ไม่ผ่าน** means no successful reply was received, including DNS errors and timeouts. This dashboard measures ping reachability. A firewall blocking echo requests can produce a failed result even when a service is accessible.
 
-DNS resolution gets one timeout budget; the ICMP and TCP checks then run concurrently with their own budgets. A hostname check can therefore take up to about twice the configured timeout, excluding queue wait. At most eight server entries are active per cycle. A hostname uses its first IPv4 address if available, otherwise its first returned address; this is displayed in row tooltips/details. The app does not probe every address of a load-balanced hostname.
+DNS and ping each receive one timeout budget; hostname checks may take about twice the timeout, excluding queue wait. At most eight entries are checked concurrently. Hostnames use their first IPv4 address, or first returned address if no IPv4 is available. The chosen IP and detailed response appear in row tooltips/details.
 
-Results are the latest **completed** checks, with timestamps. Stop preserves earlier results for unfinished entries. CSV exports the current snapshot, including older results and untested entries, rather than a historical log. Results themselves are not saved between launches.
+Results represent the latest completed check and its timestamp. Stop preserves earlier results for unfinished entries.
 
-See [Thai user guide](docs/USAGE.th.md), [complete data flow and function index](docs/ARCHITECTURE.md), and [delivery verification](docs/VERIFICATION.md).
+See [Thai guide](docs/USAGE.th.md), [data flow and function index](docs/ARCHITECTURE.md), and [verification](docs/VERIFICATION.md).

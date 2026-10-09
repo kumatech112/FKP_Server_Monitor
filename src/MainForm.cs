@@ -41,8 +41,8 @@ namespace ServerBotTracker
             Font = new Font("Tahoma", 10F);
             ForeColor = Theme.Ink;
             BackColor = Theme.Background;
-            ClientSize = new Size(1260, 750);
-            MinimumSize = new Size(1140, 650);
+            ClientSize = new Size(1120, 700);
+            MinimumSize = new Size(980, 600);
             StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
             BuildLayout();
@@ -65,7 +65,7 @@ namespace ServerBotTracker
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
             var heading = new Panel { Dock = DockStyle.Fill };
             heading.Controls.Add(new Label { Text = "ตรวจสอบเซิร์ฟเวอร์", Font = new Font("Tahoma", 22F, FontStyle.Bold), ForeColor = Theme.Ink, AutoSize = true, Location = new Point(0, 0) });
-            heading.Controls.Add(new Label { Text = "ดูการเชื่อมต่อและพอร์ตบริการของหลายเซิร์ฟเวอร์ในหน้าจอเดียว", AutoSize = true, ForeColor = Color.FromArgb(93, 111, 136), Location = new Point(2, 48) });
+            heading.Controls.Add(new Label { Text = "Dashboard ตรวจการเชื่อมต่อด้วย Ping • ดูผลผ่าน / ไม่ผ่านในหน้าจอเดียว", AutoSize = true, ForeColor = Color.FromArgb(93, 111, 136), Location = new Point(2, 48) });
             layout.Controls.Add(heading, 0, 0);
             var summary = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(14, 10, 14, 10), Margin = new Padding(0, 0, 0, 10) };
             totals.Dock = DockStyle.Fill;
@@ -80,7 +80,7 @@ namespace ServerBotTracker
             progress.Dock = DockStyle.Fill;
             progress.TextAlign = ContentAlignment.MiddleLeft;
             layout.Controls.Add(progress, 0, 5);
-            var explanation = Theme.Label("ICMP ไม่ผ่านอาจเกิดจากไฟร์วอลล์ • TCP ผ่านหมายถึงพอร์ตเปิด ยังไม่ยืนยันว่าบริการทำงานสมบูรณ์\nเลือกแถวเพื่อดูรายละเอียด • Ctrl / Shift เลือกหลายรายการ • ผลลัพธ์เป็นสถานะ ณ เวลาที่ตรวจ");
+            var explanation = Theme.Label("ผ่าน = ตอบกลับ Ping • ไม่ผ่าน = ไม่ได้รับคำตอบ • ดูเวลาตรวจล่าสุดประกอบ\nเลือกแถวเพื่อดูรายละเอียด • Ctrl / Shift เลือกหลายรายการ");
             explanation.Dock = DockStyle.Fill;
             explanation.ForeColor = Color.FromArgb(93, 111, 136);
             layout.Controls.Add(explanation, 0, 6);
@@ -101,12 +101,9 @@ namespace ServerBotTracker
             checkAll.Click += async delegate { await RunChecksAsync(false); };
             checkSelected.Click += async delegate { await RunChecksAsync(true); };
             stop.Click += delegate { automatic.Checked = false; if (currentCheck != null) currentCheck.Cancel(); };
-            Button export = Theme.Button("ส่งออก CSV", false);
-            export.Click += ExportReport;
             toolbar.Controls.Add(checkAll);
             toolbar.Controls.Add(checkSelected);
             toolbar.Controls.Add(stop);
-            toolbar.Controls.Add(export);
             return toolbar;
         }
 
@@ -167,14 +164,11 @@ namespace ServerBotTracker
             grid.DefaultCellStyle.SelectionForeColor = Theme.Ink;
             grid.DefaultCellStyle.Padding = new Padding(6, 0, 6, 0);
             grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 253);
-            AddColumn("ServerName", "ชื่อเซิร์ฟเวอร์", 145);
-            AddColumn("Host", "IP / โฮสต์", 160);
-            AddColumn("Mode", "วิธีตรวจ", 100);
-            AddColumn("Port", "พอร์ต", 70);
-            AddColumn("Icmp", "ICMP / ms", 120);
-            AddColumn("Tcp", "TCP / ms", 135);
-            AddColumn("Status", "สถานะ", 115);
-            AddColumn("CheckedAt", "ตรวจล่าสุด", 165);
+            AddColumn("ServerName", "ชื่อเซิร์ฟเวอร์", 200);
+            AddColumn("Host", "IP / โฮสต์", 220);
+            AddColumn("Status", "ผล Ping", 115);
+            AddColumn("Latency", "เวลาตอบกลับ (ms)", 160);
+            AddColumn("CheckedAt", "ตรวจล่าสุด", 180);
             grid.CellDoubleClick += delegate(object sender, DataGridViewCellEventArgs args) { if (args.RowIndex >= 0 && !busy) EditServer(sender, EventArgs.Empty); };
             grid.SelectionChanged += delegate { ShowSelectedDetails(); };
         }
@@ -194,7 +188,7 @@ namespace ServerBotTracker
             {
                 if (term.Length > 0 && server.Name.IndexOf(term, StringComparison.OrdinalIgnoreCase) < 0 && server.Host.IndexOf(term, StringComparison.OrdinalIgnoreCase) < 0)
                     continue;
-                int index = grid.Rows.Add(server.Name, server.Host, server.Mode == "Both" ? "ICMP + TCP" : server.Mode, server.Mode == "ICMP" ? "—" : server.Port.ToString(), "—", "—", "ยังไม่ตรวจ", "—");
+                int index = grid.Rows.Add(server.Name, server.Host, "ยังไม่ตรวจ", "—", "—");
                 DataGridViewRow row = grid.Rows[index];
                 row.Tag = server.Id;
                 visibleRows[server.Id] = row;
@@ -214,29 +208,27 @@ namespace ServerBotTracker
 
         private void UpdateRow(DataGridViewRow row, ServerResult result)
         {
-            row.Cells["Icmp"].Value = ProbeText(result.Icmp);
-            row.Cells["Tcp"].Value = ProbeText(result.Tcp);
+            row.Cells["Latency"].Value = result.Ping != null && result.Ping.Milliseconds.HasValue ? result.Ping.Milliseconds.Value.ToString(CultureInfo.InvariantCulture) : "—";
             row.Cells["Status"].Value = result.Summary;
             row.Cells["CheckedAt"].Value = result.CheckedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
-            Color color = result.Summary == "ผ่าน" ? Theme.Green : result.Summary == "ผ่านบางส่วน" ? Theme.Amber : Theme.Red;
+            Color color = result.Summary == "ผ่าน" ? Theme.Green : Theme.Red;
             row.Cells["Status"].Style.ForeColor = color;
             row.Cells["Status"].Style.SelectionForeColor = color;
-            string detail = "IP ที่ตรวจ: " + result.Address + " | ICMP: " + ProbeText(result.Icmp) + " | TCP: " + ProbeText(result.Tcp);
+            string detail = "IP ที่ตรวจ: " + result.Address + " | Ping: " + ProbeText(result.Ping);
             foreach (DataGridViewCell cell in row.Cells) cell.ToolTipText = detail;
         }
 
         private static string ProbeText(ProbeResult result)
         {
-            if (result == null) return "ไม่ได้เลือก";
+            if (result == null) return "ยังไม่ตรวจ";
             return result.Message + (result.Milliseconds.HasValue ? " / " + result.Milliseconds.Value + " ms" : "");
         }
 
         private void UpdateTotals()
         {
             int passed = results.Values.Count(result => result.Summary == "ผ่าน");
-            int partial = results.Values.Count(result => result.Summary == "ผ่านบางส่วน");
             int failed = results.Values.Count(result => result.Summary == "ไม่ผ่าน");
-            totals.Text = String.Format("ทั้งหมด {0}     ผ่าน {1}     ผ่านบางส่วน {2}     ไม่ผ่าน {3}     ยังไม่ตรวจ {4}     แสดง {5}", configuration.Servers.Count, passed, partial, failed, configuration.Servers.Count - results.Count, grid.Rows.Count);
+            totals.Text = String.Format("ทั้งหมด {0}     ผ่าน {1}     ไม่ผ่าน {2}     ยังไม่ตรวจ {3}     แสดง {4}", configuration.Servers.Count, passed, failed, configuration.Servers.Count - results.Count, grid.Rows.Count);
         }
 
         private void ShowSelectedDetails()
@@ -245,7 +237,7 @@ namespace ServerBotTracker
             string id = grid.SelectedRows[0].Tag as string;
             ServerResult result;
             if (id != null && results.TryGetValue(id, out result))
-                progress.Text = "IP ที่ตรวจ: " + result.Address + "   |   ICMP: " + ProbeText(result.Icmp) + "   |   TCP: " + ProbeText(result.Tcp);
+                progress.Text = "IP ที่ตรวจ: " + result.Address + "   |   Ping: " + ProbeText(result.Ping);
         }
 
         public async Task RunChecksAsync(bool selectedOnly)
@@ -361,7 +353,7 @@ namespace ServerBotTracker
                 int skipped = 0;
                 foreach (ServerEntry entry in dialog.Entries)
                 {
-                    bool exists = candidate.Servers.Any(server => String.Equals(server.Host, entry.Host, StringComparison.OrdinalIgnoreCase) && server.Port == entry.Port && server.Mode == entry.Mode);
+                    bool exists = candidate.Servers.Any(server => String.Equals(server.Host, entry.Host, StringComparison.OrdinalIgnoreCase));
                     if (exists) { skipped++; continue; }
                     candidate.Servers.Add(entry);
                 }
@@ -423,23 +415,6 @@ namespace ServerBotTracker
                 timer.Stop();
                 timer.Interval = configuration.IntervalSeconds * 1000;
                 timer.Start();
-            }
-        }
-
-        private void ExportReport(object sender, EventArgs args)
-        {
-            using (var dialog = new SaveFileDialog { Filter = "CSV (*.csv)|*.csv", FileName = "Server_Status_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".csv", OverwritePrompt = true })
-            {
-                if (dialog.ShowDialog(this) != DialogResult.OK) return;
-                try
-                {
-                    ReportWriter.Write(dialog.FileName, configuration.Servers, results);
-                    progress.Text = "ส่งออกทุกรายการแล้ว: " + dialog.FileName;
-                }
-                catch (Exception exception)
-                {
-                    MessageBox.Show(this, "ส่งออกไม่ได้: " + exception.Message, "ข้อผิดพลาด", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
             }
         }
 

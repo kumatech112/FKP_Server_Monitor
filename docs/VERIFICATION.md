@@ -1,47 +1,44 @@
-# Delivery verification
+# Verification: ping dashboard 1.1
 
-Date: 2026-10-09 (Asia/Bangkok). Initial delivery in the requested UNC workspace.
+Date: 2026-10-09 (Asia/Bangkok).
 
-## Before and after review
+The previous implementation and Git state were inspected before changing it. TCP checking, port/method entry fields, partial-pass status and CSV export were removed. The affected model, networking, editor, dashboard, configuration loading and verification code were reviewed again after the change. Build scripts, cancellation, atomic persistence and the existing project separation remain in use.
 
-The workspace was inspected before implementation: it contained no files and no Git repository. The implementation is isolated to this project. After implementation, all application source files were reviewed for data flow, validation, persistence boundaries, asynchronous UI updates, cancellation, network-resource cleanup and generated-file locations. No unfinished implementation placeholders or shell-based ping invocation were found.
+## Results
 
-The release was compiled with compiler warnings treated as errors. The verification runner loads a byte-identical copy of the final release executable rather than a separately compiled version of the application.
+**36 assertions passed against the rebuilt release executable.**
 
-## Verified behavior
+- Empty first launch, Thai JSON round-trip, atomic-save backup, invalid-ID rejection, corruption preservation and temporary-file cleanup.
+- IP/hostname validation, IPv6 literal acceptance, rejection of host-plus-port input and prevention of a false pass for an incomplete result.
+- Previous schema loads all IDs, Thai names and hosts, including duplicate-host entries. Loading leaves the original untouched. A normal save removes obsolete fields and preserves the original backup. Unsupported future schemas are rejected without rewriting.
+- Deadline and cancellation handling.
+- Real loopback ping replies and response latency; hostname resolution; failed DNS produces a failed result.
+- Thai dashboard pass/fail rendering and absence of port, method, TCP and export controls.
+- Selected-row checking updates only the selected row.
+- Single-server editor accepts only name/host. Add/edit and bulk workflows persist data. Bulk duplicate-host handling and Thai search work.
+- Settings persistence, a subsequent automatic timer cycle, Stop, and closing during a check.
+- Actual release entry-point launch and normal exit.
 
-32 verification assertions passed:
+GUI workflows run under a real Windows Forms message loop with cross-thread access detection enabled. The dashboard and two-field editor were rendered and visually inspected.
 
-- First launch stays empty without creating settings; Thai JSON round-trip works.
-- Atomic save retains a previous-version backup; invalid duplicate IDs cannot overwrite data; corrupt JSON remains untouched; no save temporary files remain.
-- URL input and invalid ports are rejected; IPv6 literals and valid port boundaries are accepted.
-- CSV has Thai UTF-8 BOM text, correct quoting, formula-input protection and explicit untested status.
-- A stalled operation times out; cancellation interrupts a pending wait; late failures are observed.
-- Actual loopback ICMP and open TCP succeed. A closed local TCP port fails independently of successful ICMP. Hostname resolution and TCP-only mode work.
-- The GUI starts checking without blocking, displays independent Thai statuses including DNS failure, and selected-only checks preserve unselected timestamps.
-- Real dialogs add and edit Thai entries; bulk entry skips duplicate lines and existing host/port/mode combinations.
-- Thai search filters and restores rows; setting changes persist outside the executable directory.
-- Automatic refresh performs a subsequent check cycle; Stop restores controls; closing during an active cycle is safe.
-- The real distributable executable launches through its entry point and closes with exit code zero.
+## Release and evidence
 
-The main GUI and single-server editor were rendered and visually inspected for Thai text, readable controls, table columns and button layout. The final GUI checks run under a real `Application.Run` message loop with illegal cross-thread access detection enabled. An early harness used only `Show`/message pumping and produced intermittent timer results; that harness was corrected before final verification.
-
-## Evidence and build
-
-Executable SHA-256:
+Release SHA-256:
 
 ```text
-6547538333B6C366990CB4599D192D77227CFCB71A7AC4BBAC6788182BB4E464
+835CDFFF4942756FB1451698327F17D9E171ED92E1EC9A4A7CB75D52886FF6B3
 ```
 
-The build and runner scripts print the current evidence directory and verified hash. Reports, GUI screenshots, fixture settings and verification binaries are kept under `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\verification-*`, outside the source project and outside Git. Build staging is removed after compilation. Only the EXE, runtime config and release guide remain in `release`.
+Evidence from this verification:
 
-## Practical verification limits
+`%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\verification-20261009-141417-495fab47`
 
-Networking was verified using controlled local endpoints and an invalid DNS hostname. No list of production servers was supplied, so their actual firewall rules, DNS entries, service ports and connectivity have not been verified. IPv6 input was validated; an actual IPv6 network connection was not part of this delivery check.
+The runner compares the verified copy's hash with the release binary. Screenshots, fixture data, verification binaries and logs stay outside the project and Git. The user's settings are not edited by these checks.
 
-This machine has .NET Framework 4.8.1. The release targets .NET Framework 4.8 and uses APIs supported there, but a separate clean Windows machine was not available for testing. GUI rendering was inspected at the current workstation DPI; other DPI settings were not visually tested. The native deletion confirmation and Save As dialog were reviewed in source; CSV writing and editor workflows were exercised independently.
+## Limits
 
-Git stores complete source, docs and build/verification tools. Runtime settings, generated EXEs and evidence are excluded. This is a local repository; no remote backup or push is implied by a local commit.
+Controlled loopback endpoints and an invalid hostname were tested. The user's actual production-server list was not supplied, so its connectivity is unverified. IPv6 input validation was tested, but a live IPv6 connection was not. This workstation uses .NET Framework 4.8.1; the app targets 4.8. A separate clean Windows machine and other DPI settings were not tested. Native deletion confirmation was reviewed in source.
 
-Short commit message: `feat: add Thai ICMP/TCP server checker with clean project layout`
+The app sends one ICMP echo per server per cycle; it does not reproduce the Windows command's default four-request sequence. Pass/fail describes ping reachability, as requested.
+
+Short commit message: `refactor: simplify server dashboard to ping-only checks`

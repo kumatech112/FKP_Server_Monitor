@@ -28,6 +28,11 @@ namespace ServerBotTracker
                 var configuration = (AppConfiguration)serializer.ReadObject(stream);
                 if (configuration == null)
                     throw new InvalidDataException("ไม่พบข้อมูลการตั้งค่า");
+                // Read the previous schema without changing IDs, names or hosts.
+                // Removed port/mode fields are ignored by the JSON serializer.
+                // The original file is untouched until an ordinary user save.
+                if (configuration.Version == 1)
+                    configuration.Version = 2;
                 configuration.Validate();
                 return configuration;
             }

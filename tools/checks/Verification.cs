@@ -5,7 +5,6 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,7 +27,7 @@ internal static class Verification
             Control.CheckForIllegalCrossThreadCalls = true;
             VerifyPersistence();
             VerifyValidation();
-            VerifyReports();
+            VerifyLegacyConfiguration();
             VerifyDeadline();
             VerifyNetworkAndGui();
             VerifyLaunch();
@@ -57,7 +56,7 @@ internal static class Verification
         var store = new ConfigurationStore(Path.Combine(root, "fixture", "servers.json"));
         AppConfiguration configuration = store.Load();
         Assert(configuration.Servers.Count == 0, "First launch starts empty without writing settings");
-        configuration.Servers.Add(new ServerEntry { Name = "เซิร์ฟเวอร์ทดสอบ", Host = "127.0.0.1", Port = 443 });
+        configuration.Servers.Add(new ServerEntry { Name = "เซิร์ฟเวอร์ทดสอบ", Host = "127.0.0.1" });
         store.Save(configuration);
         Assert(store.Load().Servers[0].Name == "เซิร์ฟเวอร์ทดสอบ", "Thai server list JSON round trip");
         configuration.TimeoutMs = 1500;
@@ -80,24 +79,31 @@ internal static class Verification
         bool rejected = false;
         try { new ServerEntry { Name = "Bad URL", Host = "https://example.com" }.Validate(); } catch (ArgumentException) { rejected = true; }
         Assert(rejected, "URL input is rejected where an IP or hostname is required");
-        new ServerEntry { Name = "IPv6", Host = "::1", Port = 65535, Mode = "TCP" }.Validate();
-        Assert(true, "IPv6 literals and valid port boundaries are accepted");
+        new ServerEntry { Name = "IPv6", Host = "::1" }.Validate();
+        Assert(true, "IPv6 literals are accepted without a port");
         rejected = false;
-        try { new ServerEntry { Name = "Port", Host = "localhost", Port = 65536 }.Validate(); } catch (ArgumentException) { rejected = true; }
-        Assert(rejected, "Out-of-range ports are rejected");
+        try { new ServerEntry { Name = "Invalid host", Host = "localhost:443" }.Validate(); } catch (ArgumentException) { rejected = true; }
+        Assert(rejected, "A hostname with an appended port is rejected");
+        Assert(new ServerResult().Summary == "ยังไม่ตรวจ", "A result without a completed ping cannot falsely report pass");
     }
 
-    private static void VerifyReports()
+    private static void VerifyLegacyConfiguration()
     {
-        var server = new ServerEntry { Name = "=HYPERLINK(\"x\")", Host = "localhost" };
-        string path = Path.Combine(root, "report.csv");
-        ReportWriter.Write(path, new[] { server }, new Dictionary<string, ServerResult>());
-        byte[] bytes = File.ReadAllBytes(path);
-        string text = File.ReadAllText(path);
-        Assert(bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf && text.Contains("ชื่อเซิร์ฟเวอร์"), "CSV includes UTF-8 BOM for Thai Excel text");
-        Assert(text.Contains("'="), "CSV escapes spreadsheet formula injection");
-        Assert(ReportWriter.EscapeCell("a,\"b\"\nc") == "\"a,\"\"b\"\"\nc\"", "CSV preserves commas, quotes and newlines");
-        Assert(text.Contains("ยังไม่ตรวจ"), "An untested server exports an explicit untested status");
+        string path = Path.Combine(root, "legacy.json");
+        string legacy = "{\"Version\":1,\"TimeoutMs\":3000,\"IntervalSeconds\":30,\"Servers\":[{\"Id\":\"old-one\",\"Name\":\"รายการเดิมหนึ่ง\",\"Host\":\"127.0.0.1\",\"Port\":443,\"Mode\":\"Both\"},{\"Id\":\"old-two\",\"Name\":\"รายการเดิมสอง\",\"Host\":\"127.0.0.1\",\"Port\":80,\"Mode\":\"TCP\"}]}";
+        File.WriteAllText(path, legacy, new UTF8Encoding(false));
+        var store = new ConfigurationStore(path);
+        AppConfiguration migrated = store.Load();
+        Assert(migrated.Version == 2 && migrated.Servers.Count == 2 && migrated.Servers[0].Id == "old-one" && migrated.Servers[0].Name == "รายการเดิมหนึ่ง" && migrated.Servers[1].Id == "old-two" && migrated.Servers.All(server => server.Host == "127.0.0.1"), "Legacy settings retain all IDs, Thai names and duplicate-host entries");
+        Assert(File.ReadAllText(path) == legacy, "Loading legacy settings does not rewrite the original file");
+        store.Save(migrated);
+        string saved = File.ReadAllText(path);
+        Assert(store.Load().Servers.Count == 2 && !saved.Contains("\"Port\"") && !saved.Contains("\"Mode\"") && File.ReadAllText(path + ".bak") == legacy, "Saving migration removes obsolete fields and backs up the original configuration");
+        string future = legacy.Replace("\"Version\":1", "\"Version\":99");
+        File.WriteAllText(path, future);
+        bool rejected = false;
+        try { store.Load(); } catch (ArgumentException) { rejected = true; }
+        Assert(rejected && File.ReadAllText(path) == future, "Unsupported future schema remains untouched");
     }
 
     private static void VerifyDeadline()
@@ -121,100 +127,92 @@ internal static class Verification
 
     private static void VerifyNetworkAndGui()
     {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        try
+        var probe = new NetworkProbe();
+        ServerResult local = probe.CheckAsync(new ServerEntry { Name = "Loopback", Host = "127.0.0.1" }, 1000, CancellationToken.None).GetAwaiter().GetResult();
+        Assert(local.Ping.Success && local.Ping.Milliseconds.HasValue && local.Summary == "ผ่าน", "Actual loopback ping passes and reports latency without a service port");
+        ServerResult hostname = probe.CheckAsync(new ServerEntry { Name = "Hostname", Host = "localhost" }, 1000, CancellationToken.None).GetAwaiter().GetResult();
+        Assert(hostname.Ping.Success && hostname.Address == "127.0.0.1", "Hostname resolution followed by ping succeeds");
+        ServerResult unknown = probe.CheckAsync(new ServerEntry { Name = "Unknown host", Host = "no-such-host.invalid" }, 1000, CancellationToken.None).GetAwaiter().GetResult();
+        Assert(!unknown.Ping.Success && unknown.Summary == "ไม่ผ่าน", "Unresolvable host reports fail with no partial-pass state");
+        var configuration = new AppConfiguration { TimeoutMs = 1000 };
+        configuration.Servers.Add(new ServerEntry { Name = "ทดสอบ • เชื่อมต่อได้", Host = "127.0.0.1" });
+        configuration.Servers.Add(new ServerEntry { Name = "ทดสอบ • ชื่อโฮสต์", Host = "localhost" });
+        configuration.Servers.Add(new ServerEntry { Name = "ทดสอบ • ชื่อโฮสต์ผิด", Host = "no-such-host.invalid" });
+        var store = new ConfigurationStore(Path.Combine(root, "gui-fixture", "servers.json"));
+        store.Save(configuration);
+        using (var form = new MainForm(store))
         {
-            int openPort = ((IPEndPoint)listener.LocalEndpoint).Port;
-            var probe = new NetworkProbe();
-            ServerResult open = probe.CheckAsync(new ServerEntry { Name = "Local open", Host = "127.0.0.1", Port = openPort }, 1000, CancellationToken.None).GetAwaiter().GetResult();
-            Assert(open.Icmp.Success && open.Tcp.Success && open.Summary == "ผ่าน", "Actual loopback ICMP and open TCP both pass");
-            var reserved = new TcpListener(IPAddress.Loopback, 0);
-            reserved.Start();
-            int closedPort = ((IPEndPoint)reserved.LocalEndpoint).Port;
-            reserved.Stop();
-            ServerResult closed = probe.CheckAsync(new ServerEntry { Name = "Local closed", Host = "127.0.0.1", Port = closedPort }, 1000, CancellationToken.None).GetAwaiter().GetResult();
-            Assert(closed.Icmp.Success && !closed.Tcp.Success && closed.Summary == "ผ่านบางส่วน", "Closed TCP is separate from successful ICMP");
-            ServerResult tcpOnly = probe.CheckAsync(new ServerEntry { Name = "TCP only", Host = "localhost", Port = openPort, Mode = "TCP" }, 1000, CancellationToken.None).GetAwaiter().GetResult();
-            Assert(tcpOnly.Icmp == null && tcpOnly.Tcp.Success && tcpOnly.Address == "127.0.0.1", "Hostname resolution and TCP-only mode");
-            var configuration = new AppConfiguration { TimeoutMs = 1000 };
-            configuration.Servers.Add(new ServerEntry { Name = "ทดสอบ • เชื่อมต่อได้", Host = "127.0.0.1", Port = openPort });
-            configuration.Servers.Add(new ServerEntry { Name = "ทดสอบ • พอร์ตปิด", Host = "127.0.0.1", Port = closedPort });
-            configuration.Servers.Add(new ServerEntry { Name = "ทดสอบ • ชื่อโฮสต์ผิด", Host = "no-such-host.invalid", Port = 443 });
-            var store = new ConfigurationStore(Path.Combine(root, "gui-fixture", "servers.json"));
-            store.Save(configuration);
-            using (var form = new MainForm(store))
+            Exception guiFailure = null;
+            form.Shown += delegate
             {
-                Exception guiFailure = null;
-                form.Shown += delegate
+                try
                 {
-                    try
+                    var responsiveness = Stopwatch.StartNew();
+                    Task checks = form.RunChecksAsync(false);
+                    Assert(responsiveness.ElapsedMilliseconds < 500, "GUI check starts without blocking the UI");
+                    WaitForUi(checks);
+                    var grid = (DataGridView)form.Controls.Find("ServerGrid", true)[0];
+                    Assert(grid.Rows.Count == 3 && (string)grid.Rows[0].Cells["Status"].Value == "ผ่าน" && (string)grid.Rows[1].Cells["Status"].Value == "ผ่าน" && (string)grid.Rows[2].Cells["Status"].Value == "ไม่ผ่าน", "Built dashboard renders green pass and red fail for ping results");
+                    Assert(grid.Columns.Count == 5 && !grid.Columns.Contains("Port") && !grid.Columns.Contains("Mode") && !grid.Columns.Contains("Tcp") && !AllControls(form).OfType<Button>().Any(button => button.Text.Contains("CSV")), "Dashboard has no port, check-method, TCP or export controls");
+                    Assert(form.Text.Contains("ตรวจสอบเซิร์ฟเวอร์"), "Thai desktop window title");
+                    using (var image = new Bitmap(form.Width, form.Height))
                     {
-                        var responsiveness = Stopwatch.StartNew();
-                        Task checks = form.RunChecksAsync(false);
-                        Assert(responsiveness.ElapsedMilliseconds < 500, "GUI check starts without blocking the UI");
-                        WaitForUi(checks);
-                        var grid = (DataGridView)form.Controls.Find("ServerGrid", true)[0];
-                        Assert(grid.Rows.Count == 3 && (string)grid.Rows[0].Cells["Status"].Value == "ผ่าน" && (string)grid.Rows[1].Cells["Status"].Value == "ผ่านบางส่วน" && (string)grid.Rows[2].Cells["Status"].Value == "ไม่ผ่าน", "Built GUI renders independent Thai check statuses including DNS failure");
-                        Assert(form.Text.Contains("ตรวจสอบเซิร์ฟเวอร์"), "Thai desktop window title");
+                        form.DrawToBitmap(image, new Rectangle(0, 0, image.Width, image.Height));
+                        image.Save(Path.Combine(root, "gui.png"));
+                    }
+                    grid.ClearSelection();
+                    grid.Rows[0].Selected = true;
+                    string unchanged = Convert.ToString(grid.Rows[1].Cells["CheckedAt"].Value);
+                    string previouslySelected = Convert.ToString(grid.Rows[0].Cells["CheckedAt"].Value);
+                    WaitForUi(Task.Delay(1100));
+                    WaitForUi(form.RunChecksAsync(true));
+                    Assert(Convert.ToString(grid.Rows[1].Cells["CheckedAt"].Value) == unchanged && Convert.ToString(grid.Rows[0].Cells["CheckedAt"].Value) != previouslySelected, "Selected-only checks update the selected row and leave unselected rows unchanged");
+                    VerifyServerDialogs(form, store);
+                    var auto = form.Controls.OfType<Control>().SelectMany(AllControls).OfType<CheckBox>().First(item => item.Text == "ตรวจอัตโนมัติ");
+                    var settings = form.Controls.OfType<Control>().SelectMany(AllControls).OfType<NumericUpDown>().ToArray();
+                    settings.First(item => item.Minimum == 5).Value = 5;
+                    auto.Checked = true;
+                    WaitForUiIdle(form);
+                    Assert(store.Load().IntervalSeconds == 5, "GUI settings are saved outside the executable folder");
+                    string beforeAuto = Convert.ToString(grid.Rows[0].Cells["CheckedAt"].Value);
+                    var autoDeadline = Stopwatch.StartNew();
+                    while (Convert.ToString(grid.Rows[0].Cells["CheckedAt"].Value) == beforeAuto && autoDeadline.ElapsedMilliseconds < 15000)
+                    {
+                        Application.DoEvents();
+                        Thread.Sleep(10);
+                    }
+                    if (Convert.ToString(grid.Rows[0].Cells["CheckedAt"].Value) == beforeAuto)
+                    {
+                        var scheduler = (System.Windows.Forms.Timer)typeof(MainForm).GetField("timer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(form);
+                        Console.WriteLine("Auto diagnostic: checked=" + auto.Checked + ", timer=" + scheduler.Enabled + ", interval=" + scheduler.Interval + ", check button=" + FindButton(form, "ตรวจทั้งหมด").Enabled + ", before=" + beforeAuto + ", now=" + grid.Rows[0].Cells["CheckedAt"].Value);
                         using (var image = new Bitmap(form.Width, form.Height))
                         {
                             form.DrawToBitmap(image, new Rectangle(0, 0, image.Width, image.Height));
-                            image.Save(Path.Combine(root, "gui.png"));
+                            image.Save(Path.Combine(root, "auto-failure.png"));
                         }
-                        grid.ClearSelection();
-                        grid.Rows[0].Selected = true;
-                        string unchanged = Convert.ToString(grid.Rows[1].Cells["CheckedAt"].Value);
-                        WaitForUi(form.RunChecksAsync(true));
-                        Assert(Convert.ToString(grid.Rows[1].Cells["CheckedAt"].Value) == unchanged, "Selected-only checks leave unselected rows unchanged");
-                        VerifyServerDialogs(form, store, openPort);
-                        var auto = form.Controls.OfType<Control>().SelectMany(AllControls).OfType<CheckBox>().First(item => item.Text == "ตรวจอัตโนมัติ");
-                        var settings = form.Controls.OfType<Control>().SelectMany(AllControls).OfType<NumericUpDown>().ToArray();
-                        settings.First(item => item.Minimum == 5).Value = 5;
-                        auto.Checked = true;
-                        WaitForUiIdle(form);
-                        Assert(store.Load().IntervalSeconds == 5, "GUI settings are saved outside the executable folder");
-                        string beforeAuto = Convert.ToString(grid.Rows[0].Cells["CheckedAt"].Value);
-                        var autoDeadline = Stopwatch.StartNew();
-                        while (Convert.ToString(grid.Rows[0].Cells["CheckedAt"].Value) == beforeAuto && autoDeadline.ElapsedMilliseconds < 15000)
-                        {
-                            Application.DoEvents();
-                            Thread.Sleep(10);
-                        }
-                        if (Convert.ToString(grid.Rows[0].Cells["CheckedAt"].Value) == beforeAuto)
-                        {
-                            var scheduler = (System.Windows.Forms.Timer)typeof(MainForm).GetField("timer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(form);
-                            Console.WriteLine("Auto diagnostic: checked=" + auto.Checked + ", timer=" + scheduler.Enabled + ", interval=" + scheduler.Interval + ", check button=" + FindButton(form, "ตรวจทั้งหมด").Enabled + ", before=" + beforeAuto + ", now=" + grid.Rows[0].Cells["CheckedAt"].Value);
-                            using (var image = new Bitmap(form.Width, form.Height))
-                            {
-                                form.DrawToBitmap(image, new Rectangle(0, 0, image.Width, image.Height));
-                                image.Save(Path.Combine(root, "auto-failure.png"));
-                            }
-                        }
-                        Assert(Convert.ToString(grid.Rows[0].Cells["CheckedAt"].Value) != beforeAuto, "Automatic timer performs another real GUI check cycle");
-                        auto.Checked = false;
-                        WaitForUiIdle(form);
-                        Task cancelledCycle = form.RunChecksAsync(false);
-                        FindButton(form, "หยุด").PerformClick();
-                        WaitForUi(cancelledCycle);
-                        Assert(FindButton(form, "ตรวจทั้งหมด").Enabled && !auto.Checked, "GUI Stop cancels the cycle and restores controls");
-                        Task closingCycle = form.RunChecksAsync(false);
-                        form.Close();
-                        WaitForUi(closingCycle);
-                        Assert(form.IsDisposed, "Closing during a check cancels safely without accessing disposed controls");
                     }
-                    catch (Exception exception)
-                    {
-                        guiFailure = exception;
-                        form.Close();
-                    }
-                };
-                Application.Run(form);
-                if (guiFailure != null)
-                    throw guiFailure;
-            }
+                    Assert(Convert.ToString(grid.Rows[0].Cells["CheckedAt"].Value) != beforeAuto, "Automatic timer performs another real GUI check cycle");
+                    auto.Checked = false;
+                    WaitForUiIdle(form);
+                    Task cancelledCycle = form.RunChecksAsync(false);
+                    FindButton(form, "หยุด").PerformClick();
+                    WaitForUi(cancelledCycle);
+                    Assert(FindButton(form, "ตรวจทั้งหมด").Enabled && !auto.Checked, "GUI Stop cancels the cycle and restores controls");
+                    Task closingCycle = form.RunChecksAsync(false);
+                    form.Close();
+                    WaitForUi(closingCycle);
+                    Assert(form.IsDisposed, "Closing during a check cancels safely without accessing disposed controls");
+                }
+                catch (Exception exception)
+                {
+                    guiFailure = exception;
+                    form.Close();
+                }
+            };
+            Application.Run(form);
+            if (guiFailure != null)
+                throw guiFailure;
         }
-        finally { listener.Stop(); }
     }
 
     private static IEnumerable<Control> AllControls(Control control)
@@ -230,7 +228,7 @@ internal static class Verification
         return AllControls(form).OfType<Button>().First(button => button.Text == text);
     }
 
-    private static void VerifyServerDialogs(MainForm form, ConfigurationStore store, int port)
+    private static void VerifyServerDialogs(MainForm form, ConfigurationStore store)
     {
         Exception failure = null;
         using (var interaction = new System.Windows.Forms.Timer { Interval = 150 })
@@ -242,10 +240,9 @@ internal static class Verification
                 try
                 {
                     if (dialog == null) throw new InvalidOperationException("Add dialog did not open");
-                    TextBox[] boxes = AllControls(dialog).OfType<TextBox>().ToArray();
-                    boxes[0].Text = "เพิ่มจากหน้าจอ";
-                    boxes[1].Text = "127.0.0.1";
-                    AllControls(dialog).OfType<NumericUpDown>().Single().Value = port;
+                    ((TextBox)dialog.Controls.Find("ServerNameInput", true)[0]).Text = "เพิ่มจากหน้าจอ";
+                    ((TextBox)dialog.Controls.Find("HostInput", true)[0]).Text = "127.0.0.1";
+                    Assert(!AllControls(dialog).OfType<NumericUpDown>().Any() && !AllControls(dialog).OfType<ComboBox>().Any(), "Single-server dialog asks only for name and host");
                     using (var image = new Bitmap(dialog.Width, dialog.Height))
                     {
                         dialog.DrawToBitmap(image, new Rectangle(0, 0, image.Width, image.Height));
@@ -262,7 +259,7 @@ internal static class Verification
             interaction.Start();
             FindButton(form, "เพิ่มเซิร์ฟเวอร์").PerformClick();
             if (failure != null) throw failure;
-            Assert(store.Load().Servers.Any(server => server.Name == "เพิ่มจากหน้าจอ" && server.Port == port), "Add-server dialog saves real Thai input");
+            Assert(store.Load().Servers.Any(server => server.Name == "เพิ่มจากหน้าจอ" && server.Host == "127.0.0.1"), "Add-server dialog saves real Thai input");
         }
         var grid = (DataGridView)form.Controls.Find("ServerGrid", true)[0];
         grid.ClearSelection();
@@ -276,8 +273,7 @@ internal static class Verification
                 try
                 {
                     if (dialog == null) throw new InvalidOperationException("Edit dialog did not open");
-                    AllControls(dialog).OfType<TextBox>().First().Text = "แก้ไขจากหน้าจอ";
-                    AllControls(dialog).OfType<ComboBox>().Single().SelectedIndex = 2;
+                    ((TextBox)dialog.Controls.Find("ServerNameInput", true)[0]).Text = "แก้ไขจากหน้าจอ";
                     FindButton(dialog, "บันทึก").PerformClick();
                 }
                 catch (Exception exception)
@@ -289,7 +285,7 @@ internal static class Verification
             interaction.Start();
             FindButton(form, "แก้ไข").PerformClick();
             if (failure != null) throw failure;
-            Assert(store.Load().Servers.Any(server => server.Name == "แก้ไขจากหน้าจอ" && server.Mode == "TCP"), "Edit-server dialog preserves and updates the selected server");
+            Assert(store.Load().Servers.Any(server => server.Name == "แก้ไขจากหน้าจอ" && server.Host == "127.0.0.1"), "Edit-server dialog preserves and updates the selected server");
         }
         using (var interaction = new System.Windows.Forms.Timer { Interval = 150 })
         {
@@ -300,8 +296,8 @@ internal static class Verification
                 try
                 {
                     if (dialog == null) throw new InvalidOperationException("Bulk dialog did not open");
-                    ((TextBox)dialog.Controls.Find("BulkHostsInput", true)[0]).Text = "127.0.0.1\r\n127.0.0.1\r\nlocalhost";
-                    AllControls(dialog).OfType<NumericUpDown>().Single().Value = port;
+                    ((TextBox)dialog.Controls.Find("BulkHostsInput", true)[0]).Text = "127.0.0.1\r\n127.0.0.1\r\nlocalhost\r\n127.0.0.2";
+                    Assert(!AllControls(dialog).OfType<NumericUpDown>().Any(), "Bulk entry has no port field");
                     FindButton(dialog, "เพิ่มรายการ").PerformClick();
                 }
                 catch (Exception exception)
@@ -313,7 +309,7 @@ internal static class Verification
             interaction.Start();
             FindButton(form, "วางหลายรายการ").PerformClick();
             if (failure != null) throw failure;
-            Assert(store.Load().Servers.Count == 5, "Bulk entry skips duplicate lines and existing host-port-mode combinations");
+            Assert(store.Load().Servers.Count == 5, "Bulk entry skips duplicate lines and existing hosts");
         }
         var search = (TextBox)form.Controls.Find("SearchBox", true)[0];
         search.Text = "แก้ไขจากหน้าจอ";

@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -11,7 +10,8 @@ namespace ServerBotTracker
 {
     public sealed class NetworkProbe
     {
-        // DNS has its own budget. ICMP and TCP then run in parallel with individual budgets.
+        // One ICMP echo per server per cycle, using the same protocol as Windows ping.
+        // DNS and the echo request each have a bounded wait.
         public async Task<ServerResult> CheckAsync(ServerEntry server, int timeoutMs, CancellationToken cancellation)
         {
             server.Validate();
@@ -33,22 +33,17 @@ namespace ServerBotTracker
             catch (Exception exception)
             {
                 string message = exception is TimeoutException ? "DNS หมดเวลา" : "ค้นหาโฮสต์ไม่ได้";
-                if (server.Mode != "TCP") result.Icmp = Failure(message);
-                if (server.Mode != "ICMP") result.Tcp = Failure(message);
+                result.Ping = Failure(message);
                 result.CheckedAt = DateTime.Now;
                 return result;
             }
 
-            Task<ProbeResult> icmp = server.Mode == "TCP" ? Task.FromResult<ProbeResult>(null) : CheckIcmpAsync(address, timeoutMs, cancellation);
-            Task<ProbeResult> tcp = server.Mode == "ICMP" ? Task.FromResult<ProbeResult>(null) : CheckTcpAsync(address, server.Port, timeoutMs, cancellation);
-            await Task.WhenAll(icmp, tcp).ConfigureAwait(false);
-            result.Icmp = await icmp.ConfigureAwait(false);
-            result.Tcp = await tcp.ConfigureAwait(false);
+            result.Ping = await CheckPingAsync(address, timeoutMs, cancellation).ConfigureAwait(false);
             result.CheckedAt = DateTime.Now;
             return result;
         }
 
-        public async Task<ProbeResult> CheckIcmpAsync(IPAddress address, int timeoutMs, CancellationToken cancellation)
+        public async Task<ProbeResult> CheckPingAsync(IPAddress address, int timeoutMs, CancellationToken cancellation)
         {
             using (var ping = new Ping())
             {
@@ -61,34 +56,8 @@ namespace ServerBotTracker
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (TimeoutException) { return Failure("หมดเวลา"); }
-                catch (Exception) { return Failure("ตรวจสอบ ICMP ไม่สำเร็จ"); }
+                catch (Exception) { return Failure("Ping ไม่สำเร็จ"); }
             }
-        }
-
-        public async Task<ProbeResult> CheckTcpAsync(IPAddress address, int port, int timeoutMs, CancellationToken cancellation)
-        {
-            using (var client = new TcpClient(address.AddressFamily))
-            {
-                var elapsed = Stopwatch.StartNew();
-                try
-                {
-                    await WithinAsync(ConnectAsync(client, address, port), timeoutMs, cancellation).ConfigureAwait(false);
-                    return new ProbeResult { Success = true, Message = "พอร์ตเปิด", Milliseconds = elapsed.ElapsedMilliseconds };
-                }
-                catch (OperationCanceledException) { throw; }
-                catch (TimeoutException) { return Failure("หมดเวลา"); }
-                catch (SocketException exception)
-                {
-                    return Failure(exception.SocketErrorCode == SocketError.ConnectionRefused ? "ปฏิเสธการเชื่อมต่อ" : "เชื่อมต่อไม่ได้ (" + exception.SocketErrorCode + ")");
-                }
-                catch (Exception) { return Failure("ตรวจสอบ TCP ไม่สำเร็จ"); }
-            }
-        }
-
-        private static async Task<bool> ConnectAsync(TcpClient client, IPAddress address, int port)
-        {
-            await client.ConnectAsync(address, port).ConfigureAwait(false);
-            return true;
         }
 
         private static ProbeResult Failure(string message)
@@ -110,7 +79,7 @@ namespace ServerBotTracker
                     cancellation.ThrowIfCancellationRequested();
                     return await operation.ConfigureAwait(false);
                 }
-                // Observe late DNS/socket failures after a timeout or cancellation.
+                // Observe late DNS/ping failures after a timeout or cancellation.
                 ObserveFailure(operation);
                 cancellation.ThrowIfCancellationRequested();
                 throw new TimeoutException();
