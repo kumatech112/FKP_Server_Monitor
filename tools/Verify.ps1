@@ -31,6 +31,7 @@ $arguments = @(
     '/reference:System.Net.Http.dll', '/reference:System.IO.Compression.dll', '/reference:System.IO.Compression.FileSystem.dll', '/reference:System.Management.dll',
     (Join-Path $PSScriptRoot 'checks\Verification.cs'),
     (Join-Path $PSScriptRoot 'checks\SetupVerification.cs'),
+    (Join-Path $PSScriptRoot 'checks\InstallationScopeVerification.cs'),
     (Join-Path $PSScriptRoot 'setup\DesktopShortcut.cs'),
     (Join-Path $PSScriptRoot 'checks\UpdatesVerification.cs')
 )

@@ -6,7 +6,9 @@ using System.Linq;
 using System.Management;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
 using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -22,10 +24,13 @@ internal static class SetupVerification
         VerifyBranding(typeof(MainForm).Assembly, Path.Combine(root, "ServerBotTracker.exe"), root, "application", assert);
         VerifyBranding(setupAssembly, setupPath, root, "setup", assert);
         assert(setupAssembly.GetName().Version == typeof(MainForm).Assembly.GetName().Version, "Installer and application versions match");
+        InstallationScopeVerification.Run(setupAssembly, root, assert);
         VerifyInstallFlow(setupAssembly, root, assert);
         VerifyRetry(setupAssembly, root, assert);
         VerifyCustomInstallation(setupAssembly, root, assert);
         VerifyUninstall(setupAssembly, root, assert);
+        VerifyUninstallFailures(setupAssembly, root, assert);
+        VerifyUninstallCleanupNotice(setupAssembly, root, assert);
         VerifyUninstallEntryPoint(root, assert);
         assert(UpdateInstaller.MatchesInstallLocation(root, root.ToUpperInvariant() + Path.DirectorySeparatorChar), "Control Panel version matching accepts equivalent paths with a trailing separator");
         assert(!UpdateInstaller.MatchesInstallLocation(null, root) && !UpdateInstaller.MatchesInstallLocation(root, root + "-other"), "Control Panel version matching rejects absent and different installations");
@@ -191,6 +196,8 @@ internal static class SetupVerification
         Type locations = assembly.GetType("InstallLocation", true);
         MethodInfo normalize = locations.GetMethod("Normalize");
         MethodInfo remembered = locations.GetMethod("ReadRemembered");
+        MethodInfo destination = locations.GetMethod("ForDestination");
+        MethodInfo browseSelection = locations.GetMethod("ForBrowseSelection");
         string target = Path.Combine(root, "ติดตั้งภาษาไทย", "Server Bot Tracker");
         string second = Path.Combine(root, "ตำแหน่งใหม่", "Server Bot Tracker");
         string shortcut = Path.Combine(root, "custom-install.lnk");
@@ -207,6 +214,10 @@ internal static class SetupVerification
             }
             assert(rejectsInvalid, "Destination validation rejects blank, relative, drive/share roots and invalid paths");
             assert((string)normalize.Invoke(null, new object[] { @"\\server\share\Server Bot Tracker\" }) == @"\\server\share\Server Bot Tracker", "An absolute UNC subfolder is retained without writing to the share");
+            assert((string)destination.Invoke(null, new object[] { @"D:\" }) == @"D:\ServerBotTracker" && (string)destination.Invoke(null, new object[] { "D:" }) == @"D:\ServerBotTracker", "Choosing a drive creates a product subfolder path instead of installing into the drive root");
+            string parent = Path.Combine(root, "เลือกโฟลเดอร์หลัก");
+            string productFolder = Path.Combine(parent, "ServerBotTracker");
+            assert((string)browseSelection.Invoke(null, new object[] { parent }) == productFolder && (string)browseSelection.Invoke(null, new object[] { productFolder }) == productFolder, "Browse adds the product folder once and preserves an already selected product folder");
             string collision = Path.Combine(root, "unrelated-install");
             Directory.CreateDirectory(collision);
             string unrelated = Path.Combine(collision, "Uninstall.exe");
@@ -284,7 +295,7 @@ internal static class SetupVerification
         catch (TargetInvocationException exception) { rootRejected = exception.InnerException is IOException; }
         assert(rootRejected && File.Exists(shortcut), "Uninstaller refuses a volume root before deleting files or registration");
         Exception failure = null;
-        FileStream locked = File.Open(Path.Combine(target, "ServerBotTracker.exe"), FileMode.Open, FileAccess.Read, FileShare.None);
+        FileStream locked = File.Open(Path.Combine(target, "ServerBotTracker.exe.config"), FileMode.Open, FileAccess.Read, FileShare.None);
         try
         {
             using (var form = (Form)Activator.CreateInstance(setupAssembly.GetType("SetupForm", true), new object[] { target, uninstall, true }))
@@ -301,7 +312,7 @@ internal static class SetupVerification
                         action.PerformClick();
                         WaitUntilEnabled(action);
                         using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registry))
-                            assert(action.Text == "ลองอีกครั้ง" && key != null, "A locked program file blocks uninstall, retains registration and allows retry");
+                            assert(action.Text == "ลองอีกครั้ง" && key != null && File.Exists(Path.Combine(target, "ServerBotTracker.exe")) && File.Exists(Path.Combine(target, "ServerBotTracker.exe.config")) && File.Exists(Path.Combine(target, "Uninstall.exe")) && File.Exists(shortcut), "A locked second file blocks uninstall before any product file, shortcut or registration disappears");
                         locked.Dispose();
                         locked = null;
                         action.PerformClick();
@@ -329,6 +340,134 @@ internal static class SetupVerification
             Registry.CurrentUser.DeleteSubKeyTree(registry, false);
         }
         if (failure != null) throw failure;
+    }
+
+    private static void VerifyUninstallFailures(Assembly assembly, string root, Action<bool, string> assert)
+    {
+        MethodInfo remove = assembly.GetType("Setup", true).GetMethod("RemoveInstallation", BindingFlags.NonPublic | BindingFlags.Static);
+        string[] names = { "ServerBotTracker.exe", "ServerBotTracker.exe.config", "Uninstall.exe" };
+        foreach (string lockedName in new[] { "Uninstall.exe", "shortcut.lnk", "move-denied" })
+        {
+            string target = Path.Combine(root, "removal-rollback-" + lockedName);
+            string shortcut = Path.Combine(root, "removal-rollback-" + lockedName + ".lnk");
+            string registry = @"Software\Kuma\ServerBotTrackerDevelopment\" + Path.GetFileName(root) + "-" + lockedName;
+            Directory.CreateDirectory(target);
+            foreach (string name in names) File.WriteAllText(Path.Combine(target, name), "Keep " + name);
+            File.WriteAllText(shortcut, "Keep shortcut");
+            using (RegistryKey key = Registry.CurrentUser.CreateSubKey(registry))
+            {
+                key.SetValue("InstallLocation", target);
+                key.SetValue("DisplayVersion", "Fixture original version");
+            }
+            FileStream locked = null;
+            DirectorySecurity directorySecurity = null;
+            FileSecurity fileSecurity = null;
+            string deniedFile = Path.Combine(target, "ServerBotTracker.exe.config");
+            try
+            {
+                if (lockedName == "move-denied")
+                {
+                    SecurityIdentifier identity = WindowsIdentity.GetCurrent().User;
+                    directorySecurity = Directory.GetAccessControl(target);
+                    var deniedDirectory = Directory.GetAccessControl(target);
+                    deniedDirectory.AddAccessRule(new FileSystemAccessRule(identity, FileSystemRights.DeleteSubdirectoriesAndFiles, AccessControlType.Deny));
+                    Directory.SetAccessControl(target, deniedDirectory);
+                    fileSecurity = File.GetAccessControl(deniedFile);
+                    var denied = File.GetAccessControl(deniedFile);
+                    denied.AddAccessRule(new FileSystemAccessRule(identity, FileSystemRights.Delete, AccessControlType.Deny));
+                    File.SetAccessControl(deniedFile, denied);
+                }
+                else
+                    locked = File.Open(lockedName == "shortcut.lnk" ? shortcut : Path.Combine(target, lockedName), FileMode.Open, FileAccess.Read, FileShare.None);
+                bool failed = false;
+                try { remove.Invoke(null, new object[] { target, shortcut, registry }); }
+                catch (TargetInvocationException error) { failed = error.InnerException is IOException; }
+                bool filesPreserved = names.All(name => File.Exists(Path.Combine(target, name)) && (name == lockedName || File.ReadAllText(Path.Combine(target, name)) == "Keep " + name));
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registry))
+                    assert(failed && filesPreserved && File.Exists(shortcut) && key != null && (string)key.GetValue("DisplayVersion") == "Fixture original version", lockedName == "move-denied" ? "A later move denied by Windows permissions rolls the earlier EXE move back and preserves registration" : "A locked " + lockedName + " cannot leave a partially removed program");
+            }
+            catch { Registry.CurrentUser.DeleteSubKeyTree(registry, false); throw; }
+            finally
+            {
+                if (locked != null) locked.Dispose();
+                if (fileSecurity != null)
+                {
+                    var restored = new FileSecurity();
+                    restored.SetSecurityDescriptorBinaryForm(fileSecurity.GetSecurityDescriptorBinaryForm(), AccessControlSections.Access);
+                    File.SetAccessControl(deniedFile, restored);
+                }
+                if (directorySecurity != null)
+                {
+                    var restored = new DirectorySecurity();
+                    restored.SetSecurityDescriptorBinaryForm(directorySecurity.GetSecurityDescriptorBinaryForm(), AccessControlSections.Access);
+                    Directory.SetAccessControl(target, restored);
+                }
+            }
+            try
+            {
+                remove.Invoke(null, new object[] { target, shortcut, registry });
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registry))
+                    assert(!Directory.Exists(target) && !File.Exists(shortcut) && key == null, "Uninstall succeeds completely after the " + lockedName + " obstruction is released");
+            }
+            finally { Registry.CurrentUser.DeleteSubKeyTree(registry, false); }
+        }
+    }
+
+    private static void VerifyUninstallCleanupNotice(Assembly assembly, string root, Action<bool, string> assert)
+    {
+        string target = Path.Combine(root, "removal-cleanup-notice");
+        string shortcut = Path.Combine(root, "removal-cleanup-notice.lnk");
+        string registry = @"Software\Kuma\ServerBotTrackerDevelopment\" + Path.GetFileName(root) + "-cleanup";
+        string[] names = { "ServerBotTracker.exe", "ServerBotTracker.exe.config", "Uninstall.exe" };
+        Directory.CreateDirectory(target);
+        foreach (string name in names) File.WriteAllText(Path.Combine(target, name), "Owned fixture file");
+        File.WriteAllText(shortcut, "Owned fixture shortcut");
+        using (RegistryKey key = Registry.CurrentUser.CreateSubKey(registry)) key.SetValue("InstallLocation", target);
+        DirectorySecurity directorySecurity = Directory.GetAccessControl(target);
+        FileSecurity fileSecurity = File.GetAccessControl(Path.Combine(target, names[0]));
+        try
+        {
+            SecurityIdentifier identity = WindowsIdentity.GetCurrent().User;
+            var deniedDirectory = Directory.GetAccessControl(target);
+            deniedDirectory.AddAccessRule(new FileSystemAccessRule(identity, FileSystemRights.DeleteSubdirectoriesAndFiles, InheritanceFlags.ContainerInherit, PropagationFlags.InheritOnly, AccessControlType.Deny));
+            Directory.SetAccessControl(target, deniedDirectory);
+            var deniedFile = File.GetAccessControl(Path.Combine(target, names[0]));
+            deniedFile.AddAccessRule(new FileSystemAccessRule(identity, FileSystemRights.Delete, AccessControlType.Deny));
+            File.SetAccessControl(Path.Combine(target, names[0]), deniedFile);
+            assembly.GetType("Setup", true).GetMethod("RemoveInstallation", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { target, shortcut, registry });
+            string notice = (string)assembly.GetType("Setup", true).GetField("removalNotice", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registry))
+                assert(names.All(name => !File.Exists(Path.Combine(target, name))) && !File.Exists(shortcut) && key == null && notice.Contains("ถอนโปรแกรมแล้ว") && Directory.GetDirectories(target, ".uninstall-*").Length == 1, "Post-uninstall cleanup failure reports completed removal with a cleanup notice instead of a false uninstall error");
+        }
+        finally
+        {
+            var restoredDirectory = new DirectorySecurity();
+            restoredDirectory.SetSecurityDescriptorBinaryForm(directorySecurity.GetSecurityDescriptorBinaryForm(), AccessControlSections.Access);
+            Directory.SetAccessControl(target, restoredDirectory);
+            foreach (string stage in Directory.GetDirectories(target, ".uninstall-*"))
+            {
+                foreach (string name in names)
+                {
+                    string file = Path.Combine(stage, name);
+                    if (!File.Exists(file)) continue;
+                    var restoredFile = new FileSecurity();
+                    restoredFile.SetSecurityDescriptorBinaryForm(fileSecurity.GetSecurityDescriptorBinaryForm(), AccessControlSections.Access);
+                    File.SetAccessControl(file, restoredFile);
+                    File.Delete(file);
+                }
+                string backupShortcut = Path.Combine(stage, "shortcut.bak");
+                if (File.Exists(backupShortcut)) File.Delete(backupShortcut);
+                Directory.Delete(stage, false);
+            }
+            string original = Path.Combine(target, names[0]);
+            if (File.Exists(original))
+            {
+                var restoredFile = new FileSecurity();
+                restoredFile.SetSecurityDescriptorBinaryForm(fileSecurity.GetSecurityDescriptorBinaryForm(), AccessControlSections.Access);
+                File.SetAccessControl(original, restoredFile);
+            }
+            Registry.CurrentUser.DeleteSubKeyTree(registry, false);
+        }
     }
 
     private static void VerifyUninstallEntryPoint(string root, Action<bool, string> assert)

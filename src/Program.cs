@@ -10,6 +10,11 @@ namespace ServerBotTracker
         [STAThread]
         private static void Main(string[] arguments)
         {
+            if (arguments.Length == 3 && arguments[0] == "--apply-update-admin")
+            {
+                Environment.ExitCode = ElevationBroker.Complete(arguments[2], delegate { UpdateInstaller.ApplyElevated(arguments[1]); }, null);
+                return;
+            }
             if (arguments.Length == 2 && arguments[0] == "--apply-update")
             {
                 Environment.ExitCode = UpdateInstaller.RunWorker(arguments[1]);

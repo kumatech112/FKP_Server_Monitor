@@ -89,7 +89,21 @@ A normal close applies a prepared update only when automatic updates remain enab
 
 Notification state is independent of `servers.json`: automatic-update preference, local-alert preference, last 100 messages, read state, and up to 1,000 seen IDs are persisted in `notifications.json`. A corrupt inbox is preserved read-only while the app uses memory-only state. Each server's alert baseline is session-local: two consecutive failed completed checks trigger down once, a later successful check triggers recovery once, and edits/deletions clear the baseline. Turning alert preferences on/off resets baselines. Announcement IDs suppress repeat notices across launches; published/expiry times are checked in UTC. Text is plain text, with no HTML, embedded actions or remote code execution. All mutations occur on the UI thread.
 
-The installer is a native per-user Windows Forms setup compiled from `tools/setup/Setup.cs`, `SetupForm.cs`, `InstallLocation.cs` and `DesktopShortcut.cs`. It embeds the same two-file ZIP, installs into the selected writable folder (default LocalAppData/Programs), creates one Start menu shortcut and one HKCU uninstall registration. It takes the same per-user instance mutex and asks users to close the dashboard first. Uninstall removes only known files and the matching shortcut/product registry key; user settings remain. Setup has no third-party build-tool dependency.
+The native Windows Forms installer embeds the two-file ZIP and compiles separated sources under `tools/setup`. Version 1.6 defaults to Program Files and installs for all users through an administrator helper, a common Start menu shortcut and HKLM uninstall registration. The GUI and dashboard remain asInvoker. Earlier per-user installations are migrated after machine installation succeeds. Settings remain per-user. No third-party build-tool dependency was added.
+
+## Standard machine installation and elevation (1.6)
+
+The owner chose Program Files and all-users installation. InstallationScope reads the remembered HKLM target or defaults to `%ProgramFiles%\ServerBotTracker`. Browse accepts a drive/parent and creates a product subfolder path; typed full custom paths remain supported. Confirmation displays the exact destination. The ordinary user wizard stays responsive while its STA worker requests `runas` through ElevationBroker. Setup is copied to a unique local temporary job directory before elevation, so an elevated account does not need access to a network/mapped-drive source. Only the protected operation runs elevated; optional app launch remains in the original user process.
+
+`InstallMachine` requires an administrator token and calls `InstallAtScope` with HKLM and CommonPrograms. The retained `InstallAt` wrapper selects HKCU for isolated verification. Shared file preflight checks every existing product file/shortcut before replacement. RegistryBackup captures original registry values and kinds; file backups and original shortcut bytes allow rollback of a failed install. Failed recovery retains the staging directory and identifies it. Cleanup-only failures are completion notices. Successful machine installation then removes the original user's legacy HKCU registration, shortcut and known files through the reversible removal engine; unrelated legacy data remains. A legacy cleanup failure does not turn the completed machine install into a failure.
+
+Both direct Uninstall.exe and Control Panel launch the same temporary wizard. Remove chooses HKLM/common shortcut for a machine installation and HKCU/user shortcut for a recognized legacy installation. The original user's running-app mutex is checked before asking for elevation, and the administrator engine checks again. UninstallTransaction handles file preflight, reversible moves, registry/shortcut rollback and cleanup notices. There is no recursive deletion of product/user folders.
+
+ElevationBroker creates a unique result directory, opens a new result file before any administrator operation, verifies the token, and records success/error. Existing result files and reparse job directories are refused. Process exit code remains authoritative after a committed operation even if writing/reading extra completion details fails. UAC cancellation is an error before product mutation. Temporary helper files stay outside the repository and cleanup is best effort.
+
+Program Files and registered machine updates require elevation. The normal updater waits for the parent, asks for administrator approval, and retains responsibility for restarting the app with the original user token. The administrator worker checks its stage/job identity, checks that the target is registered, downloads the live official manifest and compares version/tag/hash/size with the prepared package before applying it. File replacement/rollback stays limited to the original two runtime files. Optional display-version updates cover matching HKCU and HKLM records and cannot fail an already committed binary update. Failed/declined updates leave the old program and a local inbox notice; an explicitly requested restart reopens it. No always-elevated dashboard or background service was introduced.
+
+The detailed 1.2–1.5 discussion below records the earlier design; the 1.6 scope and privilege behavior above supersede its per-user/default-location statements.
 
 ## Product branding and classic wizard flow (1.4)
 
@@ -97,11 +111,11 @@ The owner supplied `server-tracker.ico` and a 512-pixel PNG. Unmodified copies l
 
 The dashboard retains its existing light/blue palette. Setup uses the owner's OBS-style reference: a navy artwork panel, white pages and native navigation buttons. Installation states are welcome -> destination -> confirmation -> working -> complete; uninstall skips destination. Failure allows retry or Back to the appropriate review page. Next only validates/advances and performs no file operation. Operation execution uses a dedicated STA worker and prevents close/reentry while files change. Launch is offered only after installation, never after removal. No OBS artwork or implementation was copied.
 
-Control Panel registration includes the quoted uninstall command, version, publisher, icon, NoModify/NoRepair, installation date and estimated size. Its `--uninstall` entry copies the EXE to Temp and launches `--uninstall-wizard` with the launcher's PID, start time and normalized original EXE directory. The helper waits for that specific launcher to exit before showing the wizard, so the installed Uninstall.exe can later be deleted. No files are removed until confirmation. `RemoveInstallation` owns the product mutex, refuses volume/share roots, deletes only three known files, and deletes the product directory only if empty. The shortcut and registry key are removed only if InstallLocation still matches that target. Its mutex is released on both success and failure. User data and unrelated files/directories remain. Tests invoke the same private engines with isolated file and registry paths.
+Control Panel registration includes the quoted uninstall command, version, publisher, icon, NoModify/NoRepair, installation date and estimated size. Its `--uninstall` entry copies the EXE to Temp and launches `--uninstall-wizard` with the launcher's PID, start time and normalized original EXE directory. The helper waits for that specific launcher to exit before showing the wizard, so the installed Uninstall.exe can later be removed. No files are removed until confirmation. `RemoveInstallation` owns the product mutex, refuses volume/share roots and dispatches to UninstallTransaction. The shortcut and registry key are removed only if InstallLocation still matches that target. Its mutex is released on success/failure. User data and unrelated files/directories remain. Tests invoke the same private engines with isolated file and registry paths.
 
 ### Selected installation folder (1.5)
 
-Setup reads the previous HKCU InstallLocation through `InstallLocation.ReadRemembered`, falling back to the original per-user default for absent/invalid values. The destination page accepts typed absolute drive/UNC subfolder paths or the exact FolderBrowserDialog selection. `Normalize` rejects blank, relative, device, root and invalid paths. `ValidateProductFiles` prevents overwriting unrelated EXEs/uninstallers or an orphaned runtime config with a colliding name. Advancing to confirmation does not probe writes or create directories.
+Setup reads the previous HKCU InstallLocation through `InstallLocation.ReadRemembered`, falling back to the original per-user default for absent/invalid values. The destination page accepts typed absolute paths or a native folder selection. In 1.5.3, `ForDestination` turns a typed drive/share root into a ServerBotTracker subfolder, while `ForBrowseSelection` appends that folder to a parent selection and retains an existing product folder. `Normalize` still rejects direct root targets, blank, relative, device and invalid paths at the file-engine boundary. `ValidateProductFiles` prevents overwriting unrelated colliding files. Confirmation shows the resolved destination; advancing creates no directories or write probes.
 
 Confirmation freezes the normalized folder passed to `Action<string>`. `Install` delegates to `InstallAt`, which takes the product mutex, revalidates ownership, creates same-folder staging, backs up all three owned files, extracts the exact two-file payload, copies the uninstaller, and creates the shortcut/Control Panel entry using the same target. Staging cleanup and mutex release also run after directory creation errors. Completion launches the selected EXE with its folder as WorkingDirectory. Choosing a different folder leaves the previous copy in place and redirects the single product registration; no recursive move/delete is performed. Version 1.5 uninstallers preserve registration belonging to another folder; legacy uninstallers retain their older behavior.
 
@@ -114,6 +128,16 @@ The updater already takes the running application's actual base directory and us
 `Setup.Main` now treats zero arguments and the executable basename `Uninstall.exe` (case-insensitive) as an uninstall launch. It uses the same temporary helper, original-directory handoff and confirmation wizard as the explicit `--uninstall` route. Previously only that flag selected uninstall mode; double-clicking the installed copy incorrectly opened Setup and could attempt to overwrite its own running file. The regular ServerBotTracker-Setup.exe welcome/destination flow, silent install, mutex guard, removal engine and user data paths remain unchanged.
 
 `SetupVerification.VerifyUninstallEntryPoint` copies the real setup to Uninstall.exe inside an isolated Thai folder with spaces. It launches that EXE both without arguments and with the Control Panel flag, identifies only its child helper through a parent-PID WMI query and matching target argument, verifies the actual uninstall window title, then closes the welcome screen and checks clean exit and unchanged fixture files. No removal is confirmed against the user's installation. System.Management is used only by developer verification, not the shipped app/setup.
+
+### Reversible uninstall and accurate completion (1.6)
+
+The old engine deleted EXE, config, uninstaller, shortcut and registration sequentially. A later locked file or permission error could leave earlier items removed despite a failure page. UninstallTransaction captures matching registration values, rejects unknown registry subkeys, and holds exclusive read/write handles for all existing known files and the owned shortcut during preflight. A directory colliding with an owned file name is rejected before any move.
+
+After preflight it creates a uniquely named .uninstall staging folder inside the target, copies the shortcut backup, and moves the three known files into same-volume staging. It then removes the owned shortcut and registration. An error before commit restores registry values/kinds, shortcut and moved files in reverse order. If restoration itself fails, backups are retained and the error identifies the recovery folder; the UI does not claim that nothing changed.
+
+After commit, staging cleanup and deletion of an empty product directory are best effort. An I/O/access failure returns a completion notice instead of throwing a false removal error. Setup passes this notice through an injected Func<string> to SetupForm; normal completion and actual failure remain separate states. Status uses a read-only text box so full error/cleanup details can be scrolled and copied. Settings and unknown files/directories are never included in staging or recursively deleted.
+
+Verification locks the second product file, the uninstaller and shortcut separately, then retries. A deny-delete ACL on the second file deliberately fails after an earlier move and verifies rollback. Another isolated ACL permits moves but prevents post-commit staging cleanup and verifies a completion notice with registration already removed. Fixture ACLs are explicitly restored, and no production ACL is changed. This is an in-process rollback mechanism, not a filesystem/registry transaction surviving a forced process termination or power loss.
 
 The app updater still validates and replaces exactly two program files. It does not replace Uninstall.exe, so upgrading the installer UI requires running the new Setup once. Optional Control Panel version updates now compare normalized install paths, allowing trailing directory separators without matching a different installation. Ping behavior, settings schema and the dashboard layout are unchanged.
 
@@ -220,8 +244,8 @@ All current application functions are listed below. Methods with the same name b
 | `src/UpdateInstaller.cs / UpdateInstaller` | `LaunchWorker` | Copy worker and persist explicit installation job |
 | `src/UpdateInstaller.cs / UpdateInstaller` | `RunWorker` | Wait for parent, apply update, record result and optionally restart |
 | `src/UpdateInstaller.cs / UpdateInstaller` | `Apply` | Revalidate, back up, replace, rollback and update matching Windows version metadata |
-| `tools/setup/Setup.cs / Setup` | `Target getter` | Read the remembered installation folder or per-user default |
-| `tools/setup/Setup.cs / Setup` | `Shortcut getter` | Resolve the product Start menu shortcut |
+| `tools/setup/Setup.cs / Setup` | `Target getter` | Read the remembered machine installation folder or Program Files default |
+| `tools/setup/Setup.cs / Setup` | `Shortcut getter` | Resolve the legacy per-user Start menu shortcut |
 | `tools/setup/Setup.cs / Setup` | `Main` | Detect direct Uninstall.exe launch and route Thai setup UI, silent install and uninstall helper |
 | `tools/setup/Setup.cs / Setup` | `AcquireInstance` | Coordinate with the dashboard's per-user mutex |
 | `tools/setup/Setup.cs / Setup` | `Install` | Bind the selected target to the product shortcut and registry paths |
@@ -243,21 +267,40 @@ All current application functions are listed below. Methods with the same name b
 | `tools/setup/SetupForm.cs / SetupForm` | `RunOperationAsync` | Run install or removal on one STA worker and propagate its result |
 | `tools/setup/SetupForm.cs / SetupForm` | `PreventCloseDuringOperation` | Prevent user closure while installing or removing files |
 | `tools/setup/Setup.cs / Setup` | `Main` | Route interactive setup through the separated SetupForm while preserving silent/uninstall routes |
-| `tools/setup/InstallLocation.cs / InstallLocation` | `DefaultDirectory getter` | Resolve the original first-install per-user location |
+| `tools/setup/InstallLocation.cs / InstallLocation` | `DefaultDirectory getter` | Resolve the standard Program Files product folder |
 | `tools/setup/InstallLocation.cs / InstallLocation` | `Normalize` | Validate absolute paths, reject roots/invalid segments and remove trailing separators |
 | `tools/setup/InstallLocation.cs / InstallLocation` | `ReadRemembered` | Read the registered folder with a safe default for absent/invalid/inaccessible metadata |
+| `tools/setup/InstallLocation.cs / InstallLocation` | `ForDestination` | Resolve a typed drive/share root to a product subfolder while preserving full custom paths |
+| `tools/setup/InstallLocation.cs / InstallLocation` | `ForBrowseSelection` | Add the product folder to a selected parent or keep an existing product destination |
 | `tools/setup/InstallLocation.cs / InstallLocation` | `Matches` | Compare normalized folders for registration ownership |
 | `tools/setup/InstallLocation.cs / InstallLocation` | `ValidateProductFiles` | Reject unrelated files with product-owned names before writes |
 | `tools/setup/DesktopShortcut.cs / DesktopShortcut` | `Create` | Save a native Unicode Windows shortcut and always release its COM object |
 | `tools/setup/DesktopShortcut.cs / IShellLinkW` | COM interface methods | Declare the complete native vtable for Unicode shortcut creation and verification |
 | `tools/setup/SetupForm.cs / SetupForm` | `GoBack` | Return to editable destination or welcome while preserving the path |
-| `tools/setup/SetupForm.cs / SetupForm` | `BrowseDirectory` | Open the native folder chooser and retain the exact selected folder |
+| `tools/setup/SetupForm.cs / SetupForm` | `BrowseDirectory` | Open the native chooser and display the automatically resolved program folder |
+| `tools/setup/SetupForm.cs / SetupForm` | four-argument constructor | Receive an optional completion-notice provider without coupling UI to the removal engine |
 | `tools/setup/SetupForm.cs / SetupForm` | `ShowPage` | Render state-specific text, navigation, progress, confirmation and completion |
 | `tools/setup/SetupForm.cs / WizardArtwork` | constructor / `OnPaint` | Draw the classic blue geometric artwork panel behind the supplied robot |
 | `tools/setup/Setup.cs / Setup` | `StartUninstallWizard` | Copy and launch the temporary UI helper with launcher identity and original installation folder |
 | `tools/setup/Setup.cs / Setup` | `WaitForLauncher` | Bound the wait for the exact original uninstaller process to exit |
-| `tools/setup/Setup.cs / Setup` | `RemoveInstallation` | Guard and remove only an explicit installation, shortcut and registration; preserve other content |
+| `tools/setup/Setup.cs / Setup` | `RemoveInstallation` | Guard the explicit target/mutex, run reversible removal and retain any completion notice |
+| `tools/setup/UninstallTransaction.cs / UninstallTransaction` | `Remove` | Preflight, stage known files, remove matching registration, roll back failure and report cleanup notices |
+| `tools/setup/UninstallTransaction.cs / UninstallTransaction` | `CleanStage` | Delete only staging files/empty staging directory and return nonfatal cleanup information |
 | `src/UpdateInstaller.cs / UpdateInstaller` | `MatchesInstallLocation` | Match equivalent full install paths for optional Control Panel version metadata |
+| `src/UpdateInstaller.cs / UpdateInstaller` | `RequiresElevation` | Detect protected Program Files and registered machine targets |
+| `src/UpdateInstaller.cs / UpdateInstaller` | `ApplyElevated` | Validate an administrator job, registered target and live official manifest before replacement |
+| `src/UpdateInstaller.cs / UpdateInstaller` | `VerifyOfficialRelease` | Compare prepared package identity with the official release |
+| `src/ElevationBroker.cs / ElevationBroker` | `IsAdministrator getter` | Check the current process token |
+| `src/ElevationBroker.cs / ElevationBroker` | `Run` | Request runas, wait for the helper and interpret its result without elevating the user window |
+| `src/ElevationBroker.cs / ElevationBroker` | `Complete` | Preflight result IPC, require the administrator token and record the actual operation outcome |
+| `tools/setup/InstallationScope.cs / InstallationScope` | `MachineShortcut / UserShortcut getters` | Resolve common and legacy per-user Start menu entries |
+| `tools/setup/InstallationScope.cs / InstallationScope` | `InitialDirectory / ReadMachineDirectory` | Read the remembered machine folder or standard Program Files default |
+| `tools/setup/InstallationScope.cs / InstallationScope` | `IsMachineTarget / RequiresMachinePrivileges` | Select machine/legacy scope for removal |
+| `tools/setup/InstallationScope.cs / InstallationScope` | `CleanLegacyUserRegistration / CleanLegacyRegistration` | Migrate the original user's old registration/files after successful machine installation |
+| `tools/setup/Setup.cs / Setup` | `InstallMachine / InstallAtScope` | Require administrator rights and install against explicit registry/shortcut scope with rollback |
+| `tools/setup/Setup.cs / Setup` | `RemoveMachine / RemoveAtScope` | Require administrator rights for machine removal and invoke the scoped transaction |
+| `tools/setup/SetupFiles.cs / SetupFiles` | `CheckAvailable / SameContents` | Share file preflight and avoid rewriting an unchanged file during rollback |
+| `tools/setup/RegistryBackup.cs / RegistryBackup` | `Capture / MatchesTarget / Restore` | Share original registry value capture, ownership matching and restoration |
 
 ## Build and verification boundaries
 
@@ -269,7 +312,10 @@ The source is reviewed before building and the resulting GUI/executable is check
 
 `tools/checks/SetupVerification.cs` verifies original embedded assets, Windows file icons, and welcome/destination/confirmation/progress/completion/close-blocking/retry under real message loops. Its UI callback records the selected path without installing. `VerifyCustomInstallation` separately invokes the real install engine in isolated Thai paths with spaces, checks real COM shortcut/HKCU metadata, applies an actual update, then removes old/new fixture installations and checks ownership/data preservation. `VerifyUninstall` covers failure/retry with a locked fixture. `Run`, `VerifyBranding`, `Hash`, `SameImage`, `RenderIcon`, `CreateForm`, `VerifyInstallFlow`, `VerifyRetry`, `WaitUntilEnabled` and `Capture` keep checks separate from product code. The verification executable declares .NET Framework 4.8 and uses the application's runtime config. Both tested EXEs are checked against their release hashes.
 
+`InstallationScopeVerification.Run` checks the Program Files/common shortcut defaults, captures `VerifyPreview`, tests `VerifyElevationJob`, verifies official-manifest mismatch rejection and exercises `VerifyLegacyMigration` only on fixtures. `VerifyMachineEngine` rejects unprivileged writes locally and performs real Program Files/HKLM fixture install/removal when administrative rights are already present. `VerifyMachineProcesses` runs only in the owner's GitHub Actions environment: from an empty product registration it exercises the real runas setup helper, downloads an official public package, exercises the actual administrator updater against an older disposable target, and invokes the runas uninstaller. It preserves unrelated fixture data and removes its own registration/shortcut. The existing published release is sufficient for this pre-publication check. If another workflow publishes during download, only an official-manifest mismatch is retried with the new manifest. This does not automate accepting a human UAC consent prompt.
+
 ## API references
 
 - [Microsoft: Ping](https://learn.microsoft.com/en-us/dotnet/api/system.net.networkinformation.ping?view=netframework-4.8)
 - [Microsoft: Unicode IShellLinkW](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nn-shobjidl_core-ishelllinkw)
+

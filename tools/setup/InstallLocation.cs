@@ -7,7 +7,7 @@ internal static class InstallLocation
 {
     public static string DefaultDirectory
     {
-        get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "ServerBotTracker"); }
+        get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ServerBotTracker"); }
     }
 
     public static string Normalize(string directory)
@@ -49,6 +49,30 @@ internal static class InstallLocation
         catch (UnauthorizedAccessException) { }
         catch (System.Security.SecurityException) { }
         return DefaultDirectory;
+    }
+
+    public static string ForDestination(string directory)
+    {
+        if (String.IsNullOrWhiteSpace(directory)) return Normalize(directory);
+        string value = directory.Trim();
+        if (value.Length == 2 && Char.IsLetter(value[0]) && value[1] == ':') value += "\\";
+        try
+        {
+            string root = Path.GetPathRoot(value);
+            if (!String.IsNullOrEmpty(root) && String.Equals(value.TrimEnd('\\', '/'), root.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
+                return Normalize(Path.Combine(root, "ServerBotTracker"));
+        }
+        catch (ArgumentException) { return Normalize(value); }
+        return Normalize(value);
+    }
+
+    public static string ForBrowseSelection(string directory)
+    {
+        string value = directory.TrimEnd('\\', '/');
+        if (String.Equals(Path.GetFileName(value), "ServerBotTracker", StringComparison.OrdinalIgnoreCase)
+            || File.Exists(Path.Combine(directory, "ServerBotTracker.exe")) || File.Exists(Path.Combine(directory, "Uninstall.exe")))
+            return ForDestination(directory);
+        return Normalize(Path.Combine(directory, "ServerBotTracker"));
     }
 
     public static bool Matches(string first, string second)

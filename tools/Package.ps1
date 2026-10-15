@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Notes = 'Fix direct Uninstall.exe launch opening setup instead of the uninstall wizard. Custom installation folders remain supported.')
+param([string]$Notes = 'Standard all-users installation in Program Files with administrator approval, automatic program-folder creation, protected-folder updates and reversible uninstall.')
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -33,8 +33,13 @@ $arguments = @(
     (Join-Path $PSScriptRoot 'setup\SetupForm.cs'),
     (Join-Path $PSScriptRoot 'setup\InstallLocation.cs'),
     (Join-Path $PSScriptRoot 'setup\DesktopShortcut.cs'),
+    (Join-Path $PSScriptRoot 'setup\UninstallTransaction.cs'),
+    (Join-Path $PSScriptRoot 'setup\InstallationScope.cs'),
+    (Join-Path $PSScriptRoot 'setup\RegistryBackup.cs'),
+    (Join-Path $PSScriptRoot 'setup\SetupFiles.cs'),
     (Join-Path $projectRoot 'src\AssemblyInfo.cs'),
     (Join-Path $projectRoot 'src\Branding.cs'),
+    (Join-Path $projectRoot 'src\ElevationBroker.cs'),
     (Join-Path $projectRoot 'src\Theme.cs')
 )
 & $compiler @arguments

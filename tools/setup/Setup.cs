@@ -8,12 +8,15 @@ using System.Security.Principal;
 using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
+using ServerBotTracker;
 
 internal static class Setup
 {
     private const string Product = "Server Bot Tracker";
     private const string RegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\KumaServerBotTracker";
-    private static string Target { get { return InstallLocation.ReadRemembered(RegistryKey); } }
+    private static string removalNotice = String.Empty;
+    private static string installationNotice = String.Empty;
+    private static string Target { get { return InstallationScope.InitialDirectory; } }
     private static string Shortcut { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Server Bot Tracker.lnk"); } }
 
     [STAThread]
@@ -21,6 +24,10 @@ internal static class Setup
     {
         try
         {
+            if (args.Length == 3 && args[0] == "--elevated-install")
+                return ElevationBroker.Complete(args[2], delegate { InstallMachine(args[1]); }, delegate { return installationNotice; });
+            if (args.Length == 3 && args[0] == "--elevated-remove")
+                return ElevationBroker.Complete(args[2], delegate { RemoveMachine(args[1]); }, delegate { return removalNotice; });
             bool directUninstall = args.Length == 0 && String.Equals(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "Uninstall.exe", StringComparison.OrdinalIgnoreCase);
             if (directUninstall || (args.Length == 1 && args[0] == "--uninstall"))
             {
@@ -32,7 +39,7 @@ internal static class Setup
                 WaitForLauncher(args[1], args[2]);
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                using (var form = new SetupForm(InstallLocation.Normalize(args[3]), Remove, true))
+                using (var form = new SetupForm(InstallLocation.Normalize(args[3]), Remove, true, delegate { return removalNotice; }))
                     Application.Run(form);
                 return 0;
             }
@@ -44,7 +51,7 @@ internal static class Setup
             if (args.Length != 0) throw new ArgumentException("พารามิเตอร์ตัวติดตั้งไม่ถูกต้อง");
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            using (var form = new SetupForm(Target, Install))
+            using (var form = new SetupForm(Target, Install, false, delegate { return installationNotice; }))
                 Application.Run(form);
             return 0;
         }
@@ -98,10 +105,27 @@ internal static class Setup
 
     private static void Install(string targetDirectory)
     {
-        InstallAt(targetDirectory, Shortcut, RegistryKey);
+        installationNotice = String.Empty;
+        string target = InstallLocation.Normalize(targetDirectory);
+        using (Mutex instance = AcquireInstance()) instance.ReleaseMutex();
+        if (ElevationBroker.IsAdministrator) InstallMachine(target);
+        else installationNotice = ElevationBroker.Run("--elevated-install", target);
+        string legacyNotice = InstallationScope.CleanLegacyUserRegistration(target, RemoveInstallation);
+        if (!String.IsNullOrEmpty(legacyNotice)) installationNotice += "\n" + legacyNotice;
+    }
+
+    private static void InstallMachine(string targetDirectory)
+    {
+        if (!ElevationBroker.IsAdministrator) throw new UnauthorizedAccessException("การติดตั้งสำหรับทุกคนต้องได้รับสิทธิ์ผู้ดูแลระบบ");
+        InstallAtScope(targetDirectory, InstallationScope.MachineShortcut, Registry.LocalMachine, RegistryKey);
     }
 
     private static void InstallAt(string targetDirectory, string shortcutPath, string registryPath)
+    {
+        InstallAtScope(targetDirectory, shortcutPath, Registry.CurrentUser, registryPath);
+    }
+
+    private static void InstallAtScope(string targetDirectory, string shortcutPath, RegistryKey registryRoot, string registryPath)
     {
         string target = InstallLocation.Normalize(targetDirectory);
         using (Mutex instance = AcquireInstance())
@@ -109,9 +133,19 @@ internal static class Setup
             string stage = Path.Combine(target, ".setup-" + Guid.NewGuid().ToString("N"));
             string[] files = { "ServerBotTracker.exe", "ServerBotTracker.exe.config", "Uninstall.exe" };
             var applied = new System.Collections.Generic.List<string>();
+            RegistryBackup registration = null;
+            byte[] shortcutBefore = null;
+            bool metadataTouched = false;
+            bool keepStage = false;
             try
             {
+                registration = RegistryBackup.Capture(registryRoot, registryPath);
+                shortcutBefore = File.Exists(shortcutPath) ? File.ReadAllBytes(shortcutPath) : null;
                 InstallLocation.ValidateProductFiles(target);
+                var existing = new System.Collections.Generic.List<string>();
+                foreach (string file in files) if (File.Exists(Path.Combine(target, file))) existing.Add(Path.Combine(target, file));
+                if (shortcutBefore != null) existing.Add(shortcutPath);
+                SetupFiles.CheckAvailable(existing);
                 Directory.CreateDirectory(stage);
                 using (Stream resource = Assembly.GetExecutingAssembly().GetManifestResourceStream("payload.zip"))
                 using (var archive = new ZipArchive(resource, ZipArchiveMode.Read))
@@ -129,11 +163,12 @@ internal static class Setup
                 File.Copy(Assembly.GetExecutingAssembly().Location, Path.Combine(stage, "Uninstall.exe"));
                 foreach (string file in files)
                 {
-                    File.Copy(Path.Combine(stage, file), Path.Combine(target, file), true);
                     applied.Add(file);
+                    File.Copy(Path.Combine(stage, file), Path.Combine(target, file), true);
                 }
+                metadataTouched = true;
                 DesktopShortcut.Create(shortcutPath, Path.Combine(target, "ServerBotTracker.exe"), target, Product);
-                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(registryPath))
+                using (RegistryKey key = registryRoot.CreateSubKey(registryPath))
                 {
                     key.SetValue("DisplayName", Product);
                     key.SetValue("DisplayVersion", FileVersionInfo.GetVersionInfo(Path.Combine(target, "ServerBotTracker.exe")).FileVersion);
@@ -149,26 +184,48 @@ internal static class Setup
                     key.SetValue("EstimatedSize", (int)((installedBytes + 1023) / 1024), RegistryValueKind.DWord);
                 }
             }
-            catch
+            catch (Exception installationError)
             {
+                var errors = new System.Collections.Generic.List<Exception> { installationError };
+                if (metadataTouched)
+                {
+                    try { registration.Restore(registryRoot, registryPath); }
+                    catch (Exception error) { errors.Add(error); }
+                    try
+                    {
+                        if (shortcutBefore == null) File.Delete(shortcutPath);
+                        else File.WriteAllBytes(shortcutPath, shortcutBefore);
+                    }
+                    catch (Exception error) { errors.Add(error); }
+                }
                 foreach (string file in applied)
                 {
                     string backup = Path.Combine(stage, file + ".bak");
-                    if (File.Exists(backup)) File.Copy(backup, Path.Combine(target, file), true);
-                    else File.Delete(Path.Combine(target, file));
+                    try
+                    {
+                        if (File.Exists(backup))
+                        {
+                            if (!SetupFiles.SameContents(Path.Combine(target, file), backup)) File.Copy(backup, Path.Combine(target, file), true);
+                        }
+                        else File.Delete(Path.Combine(target, file));
+                    }
+                    catch (Exception error) { errors.Add(error); }
                 }
+                if (errors.Count > 1) { keepStage = true; throw new AggregateException("ติดตั้งไม่สำเร็จและคืนค่าได้ไม่ครบ กรุณาเก็บโฟลเดอร์สำรองไว้: " + stage, errors); }
                 throw;
             }
             finally
             {
                 try
                 {
-                    if (Directory.Exists(stage))
+                    if (!keepStage && Directory.Exists(stage))
                     {
                         foreach (string file in Directory.GetFiles(stage)) File.Delete(file);
                         Directory.Delete(stage, false);
                     }
                 }
+                catch (IOException) { installationNotice = "ติดตั้งโปรแกรมแล้ว แต่ยังมีไฟล์ชั่วคราวที่: " + stage; }
+                catch (UnauthorizedAccessException) { installationNotice = "ติดตั้งโปรแกรมแล้ว แต่ยังมีไฟล์ชั่วคราวที่: " + stage; }
                 finally { instance.ReleaseMutex(); }
             }
         }
@@ -176,10 +233,28 @@ internal static class Setup
 
     private static void Remove(string targetDirectory)
     {
-        RemoveInstallation(targetDirectory, Shortcut, RegistryKey);
+        removalNotice = String.Empty;
+        using (Mutex instance = AcquireInstance()) instance.ReleaseMutex();
+        if (InstallationScope.RequiresMachinePrivileges(targetDirectory))
+        {
+            if (ElevationBroker.IsAdministrator) RemoveMachine(targetDirectory);
+            else removalNotice = ElevationBroker.Run("--elevated-remove", targetDirectory);
+        }
+        else RemoveInstallation(targetDirectory, Shortcut, RegistryKey);
+    }
+
+    private static void RemoveMachine(string targetDirectory)
+    {
+        if (!ElevationBroker.IsAdministrator) throw new UnauthorizedAccessException("การถอนโปรแกรมสำหรับทุกคนต้องได้รับสิทธิ์ผู้ดูแลระบบ");
+        RemoveAtScope(targetDirectory, InstallationScope.MachineShortcut, Registry.LocalMachine, RegistryKey);
     }
 
     private static void RemoveInstallation(string targetDirectory, string shortcutPath, string registryPath)
+    {
+        RemoveAtScope(targetDirectory, shortcutPath, Registry.CurrentUser, registryPath);
+    }
+
+    private static void RemoveAtScope(string targetDirectory, string shortcutPath, RegistryKey registryRoot, string registryPath)
     {
         using (Mutex instance = AcquireInstance())
         {
@@ -188,17 +263,7 @@ internal static class Setup
                 string target = InstallLocation.Normalize(targetDirectory);
                 if (String.Equals(Path.GetFullPath(Assembly.GetExecutingAssembly().Location), Path.Combine(target, "Uninstall.exe"), StringComparison.OrdinalIgnoreCase))
                     throw new IOException("ถอนการติดตั้งต้องทำงานผ่านตัวช่วยชั่วคราว");
-                foreach (string file in new[] { "ServerBotTracker.exe", "ServerBotTracker.exe.config", "Uninstall.exe" })
-                    if (File.Exists(Path.Combine(target, file))) File.Delete(Path.Combine(target, file));
-                if (Directory.Exists(target) && Directory.GetFileSystemEntries(target).Length == 0) Directory.Delete(target, false);
-                bool ownsRegistration;
-                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registryPath))
-                    ownsRegistration = key != null && InstallLocation.Matches(key.GetValue("InstallLocation") as string, target);
-                if (ownsRegistration)
-                {
-                    if (File.Exists(shortcutPath)) File.Delete(shortcutPath);
-                    Registry.CurrentUser.DeleteSubKeyTree(registryPath, false);
-                }
+                removalNotice = UninstallTransaction.Remove(target, shortcutPath, registryRoot, registryPath);
             }
             finally { instance.ReleaseMutex(); }
         }
