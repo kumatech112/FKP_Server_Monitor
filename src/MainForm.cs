@@ -9,7 +9,7 @@ using System.Windows.Forms;
 
 namespace ServerBotTracker
 {
-    public sealed class MainForm : Form
+    public sealed partial class MainForm : Form
     {
         private readonly ConfigurationStore store;
         private AppConfiguration configuration;
@@ -33,7 +33,9 @@ namespace ServerBotTracker
         private bool closing;
         private bool resettingSettings;
 
-        public MainForm(ConfigurationStore configurationStore)
+        public MainForm(ConfigurationStore configurationStore) : this(configurationStore, true) { }
+
+        public MainForm(ConfigurationStore configurationStore, bool onlineServices)
         {
             store = configurationStore;
             configuration = store.Load();
@@ -46,6 +48,7 @@ namespace ServerBotTracker
             StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
             BuildLayout();
+            InitializeNotifications(onlineServices);
             RenderRows();
             timer.Tick += async delegate { await RunChecksAsync(false); };
             FormClosing += OnClosing;
@@ -66,6 +69,7 @@ namespace ServerBotTracker
             var heading = new Panel { Dock = DockStyle.Fill };
             heading.Controls.Add(new Label { Text = "ตรวจสอบเซิร์ฟเวอร์", Font = new Font("Tahoma", 22F, FontStyle.Bold), ForeColor = Theme.Ink, AutoSize = true, Location = new Point(0, 0) });
             heading.Controls.Add(new Label { Text = "Dashboard ตรวจการเชื่อมต่อด้วย Ping • ดูผลผ่าน / ไม่ผ่านในหน้าจอเดียว", AutoSize = true, ForeColor = Color.FromArgb(93, 111, 136), Location = new Point(2, 48) });
+            BuildNotificationButtons(heading);
             layout.Controls.Add(heading, 0, 0);
             var summary = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(14, 10, 14, 10), Margin = new Padding(0, 0, 0, 10) };
             totals.Dock = DockStyle.Fill;
@@ -270,6 +274,7 @@ namespace ServerBotTracker
                             ServerResult result = await probe.CheckAsync(server, timeoutMs, cancellation);
                             if (closing) return;
                             results[server.Id] = result;
+                            PublishServerAlert(server, result);
                             DataGridViewRow row;
                             if (visibleRows.TryGetValue(server.Id, out row)) UpdateRow(row, result);
                             completed++;
@@ -378,6 +383,7 @@ namespace ServerBotTracker
                 if (CommitConfiguration(candidate))
                 {
                     results.Remove(entry.Id);
+                    alertTracker.Forget(entry.Id);
                     RenderRows();
                 }
             }
@@ -392,7 +398,11 @@ namespace ServerBotTracker
             candidate.Servers.RemoveAll(server => ids.Contains(server.Id));
             if (CommitConfiguration(candidate))
             {
-                foreach (string id in ids) results.Remove(id);
+                foreach (string id in ids)
+                {
+                    results.Remove(id);
+                    alertTracker.Forget(id);
+                }
                 RenderRows();
             }
         }

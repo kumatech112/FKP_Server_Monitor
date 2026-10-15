@@ -1,44 +1,46 @@
-# Verification: ping dashboard 1.1
+# Verification: updates and notifications 1.2
 
-Date: 2026-10-09 (Asia/Bangkok).
+Date: 2026-10-15 (Asia/Bangkok).
 
-The previous implementation and Git state were inspected before changing it. TCP checking, port/method entry fields, partial-pass status and CSV export were removed. The affected model, networking, editor, dashboard, configuration loading and verification code were reviewed again after the change. Build scripts, cancellation, atomic persistence and the existing project separation remain in use.
+The existing ping-only app and clean Git state were reviewed before implementation. Its existing 36 checks passed before changes. Server lists remain schema 2; port/service checks and CSV export were not reintroduced.
 
-## Results
+## Verified release
 
-**36 assertions passed against the rebuilt release executable.**
+**62 checks passed** against a byte-identical copy of the final release. The build treats warnings as errors.
 
-- Empty first launch, Thai JSON round-trip, atomic-save backup, invalid-ID rejection, corruption preservation and temporary-file cleanup.
-- IP/hostname validation, IPv6 literal acceptance, rejection of host-plus-port input and prevention of a false pass for an incomplete result.
-- Previous schema loads all IDs, Thai names and hosts, including duplicate-host entries. Loading leaves the original untouched. A normal save removes obsolete fields and preserves the original backup. Unsupported future schemas are rejected without rewriting.
-- Deadline and cancellation handling.
-- Real loopback ping replies and response latency; hostname resolution; failed DNS produces a failed result.
-- Thai dashboard pass/fail rendering and absence of port, method, TCP and export controls.
-- Selected-row checking updates only the selected row.
-- Single-server editor accepts only name/host. Add/edit and bulk workflows persist data. Bulk duplicate-host handling and Thai search work.
-- Settings persistence, a subsequent automatic timer cycle, Stop, and closing during a check.
-- Actual release entry-point launch and normal exit.
+- Existing settings migration, corruption preservation, ping, DNS failure, selection, dialogs, search, cancellation, automatic ping refresh and real EXE startup.
+- Announcement persistence, unread state, duplicate suppression, active/expired UTC windows and duplicate-ID rejection.
+- Two-failure down transitions, no repeated warnings, independent server states, one recovery notice and baseline reset.
+- Corrupt inbox fallback preserves its original data and does not stop monitoring.
+- Real publisher-generated JSON/ZIP are accepted, including PowerShell's UTF-8 BOM.
+- HTTPS channel parsing, rejection of unsafe redirects, unavailable-channel errors, normalized version comparisons and version/tag mismatch rejection.
+- A deliberately stalled HTTP body that ignores read cancellation is closed by cancellation without hanging the update check.
+- Current-version rejection before downloading; altered SHA-256 rejection; ZIP traversal rejection.
+- Applying the actual new executable to an old-version fixture preserves unrelated files.
+- A deliberate runtime-config lock fails after EXE replacement; the EXE rolls back to the old version and sibling staging files are removed.
+- A real updater subprocess waits for its parent and installs without opening another dashboard.
+- Real failed ping cycles populate the actual inbox; its read-all button persists read state; the update dialog shows the configured public repository.
 
-GUI workflows run under a real Windows Forms message loop with cross-thread access detection enabled. The dashboard and two-field editor were rendered and visually inspected.
+The dashboard, inbox and update dialog were rendered under a real Windows Forms message loop with cross-thread access checking enabled. The main dashboard and original two-field server editor remain intact.
 
-## Release and evidence
+## Hashes
 
-Release SHA-256:
+- Application EXE: `578F8E5C1D62B485694F6E10FC26CFDD4281E74ED19CFA3EEEECD22835876486`
+- Setup EXE: `C2152F1306887C53288263549B5EBEDE3CBE1BDB237B87DD892D6E22ED2AE77F`
+- Update ZIP: `019E783E4A25F90D135EDBF2E4E1A4454D5F0EC4D3F556E159B0F63718797C50`
 
-```text
-835CDFFF4942756FB1451698327F17D9E171ED92E1EC9A4A7CB75D52886FF6B3
-```
+Evidence: `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\verification-20261015-114733-576435bb`.
 
-Evidence from this verification:
+The native per-user installer completed with exit code 0. Its installed EXE matches the final release hash. Start menu and Windows uninstall metadata were checked. The installed copy remains at `%LOCALAPPDATA%\Programs\ServerBotTracker`.
 
-`%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\verification-20261009-141417-495fab47`
+## Boundaries
 
-The runner compares the verified copy's hash with the release binary. Screenshots, fixture data, verification binaries and logs stay outside the project and Git. The user's settings are not edited by these checks.
+- Automatic approval review rejected the combined installed-app launch/uninstall verification command with “blocked by policy.” That command did not execute. It was not retried through another method, and the installed copy was left in place. Release entry-point startup and the update worker were tested separately.
+- The owner made the existing source repository public. Its public API confirms `private: false`, and Git push authentication was verified without reading credentials. Online publication is checked separately after the version tag is pushed.
+- The same-repository release workflow uses GitHub's built-in workflow token. A matching version tag publishes after checks; a manual run creates a draft. The announcement channel starts empty, with no announcement broadcast.
+- The installer is currently `NotSigned`; SHA-256 and HTTPS validation do not constitute Windows publisher code signing. A certificate-based signing script is prepared, but no certificate was generated or purchased.
+- Production server connectivity, other Windows/DPI environments, and a public-Internet end-to-end upgrade were not verified. Controlled networking and local update fixtures were used.
 
-## Limits
+All generated files stay in the ignored release folder or the Windows user's application-data directories. No server lists, settings, project source files or tokens are included in the update ZIP.
 
-Controlled loopback endpoints and an invalid hostname were tested. The user's actual production-server list was not supplied, so its connectivity is unverified. IPv6 input validation was tested, but a live IPv6 connection was not. This workstation uses .NET Framework 4.8.1; the app targets 4.8. A separate clean Windows machine and other DPI settings were not tested. Native deletion confirmation was reviewed in source.
-
-The app sends one ICMP echo per server per cycle; it does not reproduce the Windows command's default four-request sequence. Pass/fail describes ping reachability, as requested.
-
-Short commit message: `refactor: simplify server dashboard to ping-only checks`
+Short commit message: `feat: add GitHub updates and in-app notifications`

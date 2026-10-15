@@ -1,0 +1,52 @@
+name: Prepare public release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build
+        shell: powershell
+        run: ./tools/Build.ps1
+      - name: Package public binaries
+        shell: powershell
+        run: ./tools/Package.ps1
+      - name: Verify packaged application
+        shell: powershell
+        run: ./tools/Verify.ps1
+      - name: Publish tagged release or prepare manual draft
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $manifest = Get-ChildItem release/publish -Filter update.json -Recurse | Select-Object -First 1
+          $release = Get-Content $manifest.FullName -Raw | ConvertFrom-Json
+          $root = $manifest.Directory.FullName
+          $release.Notes | Set-Content (Join-Path $root 'notes.txt') -Encoding UTF8
+          $arguments = @('release', 'create', $release.Tag, (Join-Path $root 'ServerBotTracker-Setup.exe'), (Join-Path $root 'ServerBotTracker-portable.zip'), $manifest.FullName, '--repo', $env:GITHUB_REPOSITORY, '--title', ('Server Bot Tracker ' + $release.Version), '--notes-file', (Join-Path $root 'notes.txt'))
+          if ($env:GITHUB_REF.StartsWith('refs/tags/')) {
+            if ($env:GITHUB_REF.Substring(10) -ne $release.Tag) { throw 'Git tag does not match the application version.' }
+            $arguments += '--latest'
+          } else {
+            $arguments += '--draft'
+          }
+          & gh @arguments
+          if ($LASTEXITCODE -ne 0) { throw 'Release creation failed.' }
+          gh release view announcements --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -ne 0) {
+            $feedRoot = Join-Path $env:RUNNER_TEMP 'server-tracker-announcements'
+            New-Item -ItemType Directory -Path $feedRoot -Force | Out-Null
+            $feedPath = Join-Path $feedRoot 'announcements.json'
+            Copy-Item tools/announcements.empty.json $feedPath
+            gh release create announcements $feedPath --repo $env:GITHUB_REPOSITORY --title 'Announcements' --notes 'Public announcement feed. No messages have been published.' --prerelease --latest=false
+            if ($LASTEXITCODE -ne 0) { throw 'Initial empty announcement channel creation failed.' }
+          }

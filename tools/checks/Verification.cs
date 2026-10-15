@@ -29,6 +29,7 @@ internal static class Verification
             VerifyValidation();
             VerifyLegacyConfiguration();
             VerifyDeadline();
+            UpdatesVerification.Run(root, Assert);
             VerifyNetworkAndGui();
             VerifyLaunch();
             File.WriteAllLines(Path.Combine(root, "verification.txt"), evidence, new UTF8Encoding(true));
@@ -140,7 +141,7 @@ internal static class Verification
         configuration.Servers.Add(new ServerEntry { Name = "ทดสอบ • ชื่อโฮสต์ผิด", Host = "no-such-host.invalid" });
         var store = new ConfigurationStore(Path.Combine(root, "gui-fixture", "servers.json"));
         store.Save(configuration);
-        using (var form = new MainForm(store))
+        using (var form = new MainForm(store, false))
         {
             Exception guiFailure = null;
             form.Shown += delegate
@@ -194,6 +195,7 @@ internal static class Verification
                     Assert(Convert.ToString(grid.Rows[0].Cells["CheckedAt"].Value) != beforeAuto, "Automatic timer performs another real GUI check cycle");
                     auto.Checked = false;
                     WaitForUiIdle(form);
+                    VerifyNotificationDialogs(form, store);
                     Task cancelledCycle = form.RunChecksAsync(false);
                     FindButton(form, "หยุด").PerformClick();
                     WaitForUi(cancelledCycle);
@@ -221,6 +223,61 @@ internal static class Verification
         foreach (Control child in control.Controls)
             foreach (Control descendant in AllControls(child))
                 yield return descendant;
+    }
+
+    private static void VerifyNotificationDialogs(MainForm form, ConfigurationStore store)
+    {
+        Exception failure = null;
+        var inbox = new NotificationCenter(Path.Combine(Path.GetDirectoryName(store.FilePath), "notifications.json"));
+        Assert(inbox.State.Items.Any(item => item.Kind == "down"), "Real failed ping cycles create an in-app server alert");
+        using (var interaction = new System.Windows.Forms.Timer { Interval = 150 })
+        {
+            interaction.Tick += delegate
+            {
+                interaction.Stop();
+                Form dialog = Application.OpenForms.Cast<Form>().FirstOrDefault(item => item.Text == "การแจ้งเตือน");
+                try
+                {
+                    if (dialog == null) throw new InvalidOperationException("Notification inbox did not open");
+                    Assert(AllControls(dialog).OfType<TextBox>().Single().Text.Contains("เซิร์ฟเวอร์ไม่ตอบกลับ"), "Notification inbox displays the actual server failure message");
+                    using (var image = new Bitmap(dialog.Width, dialog.Height))
+                    {
+                        dialog.DrawToBitmap(image, new Rectangle(0, 0, image.Width, image.Height));
+                        image.Save(Path.Combine(root, "notifications.png"));
+                    }
+                    FindButton(dialog, "อ่านทั้งหมดแล้ว").PerformClick();
+                    FindButton(dialog, "ปิด").PerformClick();
+                }
+                catch (Exception exception) { failure = exception; if (dialog != null) dialog.Close(); }
+            };
+            interaction.Start();
+            AllControls(form).OfType<Button>().Single(button => button.Text.StartsWith("การแจ้งเตือน (")).PerformClick();
+            if (failure != null) throw failure;
+            Assert(new NotificationCenter(Path.Combine(Path.GetDirectoryName(store.FilePath), "notifications.json")).State.Items.All(item => item.Read), "Read-all from the real inbox persists read state");
+        }
+        using (var interaction = new System.Windows.Forms.Timer { Interval = 150 })
+        {
+            interaction.Tick += delegate
+            {
+                interaction.Stop();
+                Form dialog = Application.OpenForms.Cast<Form>().FirstOrDefault(item => item.Text == "อัปเดตและเกี่ยวกับโปรแกรม");
+                try
+                {
+                    if (dialog == null) throw new InvalidOperationException("Update dialog did not open");
+                    Assert(AllControls(dialog).OfType<Label>().Any(label => label.Text.Contains(ReleaseChannel.OfficialRepository)), "Update dialog identifies the configured public release repository");
+                    using (var image = new Bitmap(dialog.Width, dialog.Height))
+                    {
+                        dialog.DrawToBitmap(image, new Rectangle(0, 0, image.Width, image.Height));
+                        image.Save(Path.Combine(root, "updates.png"));
+                    }
+                    FindButton(dialog, "ปิด").PerformClick();
+                }
+                catch (Exception exception) { failure = exception; if (dialog != null) dialog.Close(); }
+            };
+            interaction.Start();
+            FindButton(form, "อัปเดต / เกี่ยวกับ").PerformClick();
+            if (failure != null) throw failure;
+        }
     }
 
     private static Button FindButton(Form form, string text)

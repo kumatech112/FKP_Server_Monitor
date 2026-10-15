@@ -4,7 +4,7 @@ A Thai Windows dashboard for checking multiple servers with ping. Add a name and
 
 ## Run
 
-Double-click `release/ServerBotTracker.exe`. Keep its `.exe.config` beside it. Requires Windows with .NET Framework 4.8 or newer. No Python, SDK, administrator rights or terminal is needed to run the app.
+For a standard installation, open `release/ServerBotTracker-Setup.exe`. It installs for the current Windows user, adds a Start menu shortcut and a Windows uninstall entry. The portable option remains: double-click `release/ServerBotTracker.exe` and keep its `.exe.config` beside it. Requires Windows with .NET Framework 4.8 or newer. No Python, SDK, administrator rights or terminal is needed to run the app.
 
 - Add, edit, delete or paste multiple server addresses.
 - Check all entries or selected rows; search by name or host.
@@ -31,6 +31,23 @@ Server_Bot_Tracker/
 
 Build staging is created outside the project and removed after compilation. Screenshots, verification binaries and fixtures stay at `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\verification-*`. Git tracks source, docs and developer tools; it excludes generated files and user settings.
 
+## Updates and notifications (1.2)
+
+The public source and distribution repository is `kumatech112/Server_Bot_Tracker`, following the owner's decision to make it public. Stable GitHub Releases provide updates; the separate `announcements` pre-release provides the announcement feed. No GitHub credentials are embedded in the app.
+
+- Background checks run at launch and every ten minutes.
+- New versions download automatically; SHA-256, size, ZIP contents and executable version are verified.
+- Installation waits until the app closes. “อัปเดตและเริ่มใหม่” installs immediately after closing and restarts the app; active automatic ping monitoring resumes.
+- Existing program files are backed up and a failed replacement rolls back the files already changed.
+- Public announcements appear once in a persistent inbox, with publish/expiry windows.
+- Two consecutive failed ping cycles trigger one local down alert. The next successful check triggers one recovery alert. Continued failures do not repeat the warning within the session.
+- Notifications are retained in `notifications.json` beside the user's settings, with a 100-item history. A damaged inbox falls back to memory without replacing the original.
+- An unreachable release source never stops ping monitoring. Server lists and alert contents are not uploaded to the release channel.
+
+Automatic downloads and local server alerts can be toggled in the Thai notification/update dialogs. Windows may suppress tray popups; inbox messages remain available. Version 1.1 users must install 1.2 once to gain the updater. The current installer is unsigned; Windows publisher signing is a separate owner-supplied certificate step.
+
+Operator instructions: [Thai publishing guide](docs/RELEASES.th.md). A code commit by itself does not publish an update.
+
 ## Saved server lists
 
 Names, addresses and preferences are stored per Windows user at `%LOCALAPPDATA%\Kuma\ServerBotTracker\servers.json`. Atomic save retains the preceding version as `servers.json.bak`. Corrupt or unsupported settings are reported and preserved.
@@ -43,6 +60,7 @@ Copy the release folder to distribute the app. Transfer settings separately, wit
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Build.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Package.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify.ps1
 ```
 

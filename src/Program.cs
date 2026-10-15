@@ -8,8 +8,13 @@ namespace ServerBotTracker
     internal static class Program
     {
         [STAThread]
-        private static void Main()
+        private static void Main(string[] arguments)
         {
+            if (arguments.Length == 2 && arguments[0] == "--apply-update")
+            {
+                Environment.ExitCode = UpdateInstaller.RunWorker(arguments[1]);
+                return;
+            }
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             string identity = WindowsIdentity.GetCurrent().User.Value;
@@ -23,7 +28,12 @@ namespace ServerBotTracker
                 }
                 try
                 {
-                    Application.Run(new MainForm(ConfigurationStore.ForCurrentUser()));
+                    using (var form = new MainForm(ConfigurationStore.ForCurrentUser()))
+                    {
+                        if (arguments.Length == 1 && arguments[0] == "--resume-monitoring")
+                            form.Shown += delegate { form.ResumeMonitoring(); };
+                        Application.Run(form);
+                    }
                 }
                 catch (Exception exception)
                 {

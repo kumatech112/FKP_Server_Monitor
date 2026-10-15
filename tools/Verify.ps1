@@ -10,14 +10,33 @@ $verificationRoot = Join-Path $env:LOCALAPPDATA ('Kuma\ServerBotTrackerDevelopme
 New-Item -ItemType Directory -Path $verificationRoot -Force | Out-Null
 Copy-Item -LiteralPath $executablePath -Destination $verificationRoot
 Copy-Item -LiteralPath (Join-Path $projectRoot 'release\ServerBotTracker.exe.config') -Destination $verificationRoot
+$releaseVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($executablePath).FileVersion
+$versionValue = [version]$releaseVersion
+$versionTag = if ($versionValue.Revision -gt 0) { $versionValue.ToString(4) } else { $versionValue.ToString(3) }
+$publishedRoot = Join-Path $projectRoot ('release\publish\v' + $versionTag)
+if (Test-Path -LiteralPath (Join-Path $publishedRoot 'update.json')) {
+    Copy-Item -LiteralPath (Join-Path $publishedRoot 'update.json') -Destination (Join-Path $verificationRoot 'published-update.json')
+    Copy-Item -LiteralPath (Join-Path $publishedRoot 'ServerBotTracker-portable.zip') -Destination (Join-Path $verificationRoot 'published-package.zip')
+}
 $runnerPath = Join-Path $verificationRoot 'Verification.exe'
 $arguments = @(
-    '/nologo', '/target:exe', '/platform:anycpu', '/warn:4', '/warnaserror+', '/utf8output',
+    '/nologo', '/target:exe', '/platform:anycpu', '/warn:4', '/warnaserror+', '/utf8output', '/codepage:65001',
     ('/out:' + $runnerPath), ('/reference:' + (Join-Path $verificationRoot 'ServerBotTracker.exe')),
     '/reference:System.dll', '/reference:System.Core.dll', '/reference:System.Drawing.dll',
     '/reference:System.Windows.Forms.dll', '/reference:System.Runtime.Serialization.dll',
-    (Join-Path $PSScriptRoot 'checks\Verification.cs')
+    '/reference:System.Net.Http.dll', '/reference:System.IO.Compression.dll', '/reference:System.IO.Compression.FileSystem.dll',
+    (Join-Path $PSScriptRoot 'checks\Verification.cs'),
+    (Join-Path $PSScriptRoot 'checks\UpdatesVerification.cs')
 )
+$fixtureSource = Join-Path $verificationRoot 'OldVersion.cs'
+@'
+using System.Reflection;
+[assembly: AssemblyProduct("Server Bot Tracker")]
+[assembly: AssemblyFileVersion("0.9.0.0")]
+internal static class OldVersion { private static void Main() { System.Threading.Thread.Sleep(1000); } }
+'@ | Set-Content -LiteralPath $fixtureSource -Encoding UTF8
+& $compilerPath /nologo /target:winexe ('/out:' + (Join-Path $verificationRoot 'OldVersion.exe')) $fixtureSource
+if ($LASTEXITCODE -ne 0) { throw 'Old-version fixture compilation failed.' }
 & $compilerPath @arguments
 if ($LASTEXITCODE -ne 0) { throw 'Verification runner compilation failed.' }
 & $runnerPath $verificationRoot

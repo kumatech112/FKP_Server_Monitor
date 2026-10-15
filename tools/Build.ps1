@@ -20,10 +20,11 @@ try {
     $executablePath = Join-Path $buildRoot 'ServerBotTracker.exe'
     $arguments = @(
         '/nologo', '/target:winexe', '/platform:anycpu', '/optimize+', '/warn:4', '/warnaserror+',
-        '/utf8output', ('/out:' + $executablePath),
+        '/utf8output', '/codepage:65001', ('/out:' + $executablePath),
         ('/win32manifest:' + (Join-Path $buildRoot 'app.manifest')),
         '/reference:System.dll', '/reference:System.Core.dll', '/reference:System.Drawing.dll',
-        '/reference:System.Windows.Forms.dll', '/reference:System.Runtime.Serialization.dll'
+        '/reference:System.Windows.Forms.dll', '/reference:System.Runtime.Serialization.dll',
+        '/reference:System.Net.Http.dll', '/reference:System.IO.Compression.dll', '/reference:System.IO.Compression.FileSystem.dll'
     )
     $arguments += @(Get-ChildItem -LiteralPath $buildRoot -Filter '*.cs' -File | ForEach-Object { $_.FullName })
     & $compilerPath @arguments
