@@ -4,6 +4,8 @@ A Thai Windows dashboard for checking multiple servers with ping. Add a name and
 
 ## Run
 
+Download the [Windows installer](https://github.com/kumatech112/Server_Bot_Tracker/releases/latest/download/ServerBotTracker-Setup.exe) or [portable ZIP](https://github.com/kumatech112/Server_Bot_Tracker/releases/latest/download/ServerBotTracker-portable.zip) from the [official GitHub Releases](https://github.com/kumatech112/Server_Bot_Tracker/releases/latest).
+
 For a standard installation, open `release/ServerBotTracker-Setup.exe`. It installs for the current Windows user, adds a Start menu shortcut and a Windows uninstall entry. The portable option remains: double-click `release/ServerBotTracker.exe` and keep its `.exe.config` beside it. Requires Windows with .NET Framework 4.8 or newer. No Python, SDK, administrator rights or terminal is needed to run the app.
 
 - Add, edit, delete or paste multiple server addresses.
