@@ -36,7 +36,15 @@ The final 89-check evidence is at `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopme
 
 ## Release verification
 
-Publication and public 1.4 download verification are recorded after the version tag is pushed. Public and local builds are separate compiler outputs, so hashes are checked independently.
+The [stable 1.4.0 release](https://github.com/kumatech112/Server_Bot_Tracker/releases/tag/v1.4.0) is published from source commit `3d7196f`. Its [GitHub tag workflow](https://github.com/kumatech112/Server_Bot_Tracker/actions/runs/38694806548) passed all 89 checks before publishing setup, portable ZIP and update manifest assets.
+
+The original 1.2 client read the live latest manifest and empty announcement feed, used its actual PrepareAsync to download/validate 1.4, and used its original UpdateInstaller.Apply to upgrade an isolated 1.2 copy while retaining fixture settings. An initial attempt just after publication still saw the preceding latest manifest; the same unmodified client passed after the new manifest became available. This does not replace an older Uninstall.exe: users must run the new Setup for the new uninstall wizard.
+
+- Public application EXE: `EF3D32188DA8E931467F28B58A744050CA330753AC08471D6094CD652C3B3959`
+- Public setup EXE: `6A65A74908AE7EE16DCE907259D2910FFBDB21F068D2D68BAAB353A8B160A5D9`
+- Public ZIP: `F1A9E14DC7140DEFBA54FCF1DD7A505C74B82BE8F1FCEFBF119D4B9A8BD14E3A` (360,922 bytes)
+
+Independently downloaded EXEs match the hashes verified in the tag workflow. Live integration evidence is at `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\live-1.2-to-1.4-20261015-135026`. Public and local builds are separate compiler outputs, so hashes are checked independently.
 
 ## Boundaries
 
