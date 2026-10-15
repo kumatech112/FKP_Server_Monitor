@@ -15,6 +15,19 @@ Existing custom folder, native shortcut, mutex coordination, removal/retry, pres
 - Setup EXE: `EEED2BC5940246A6093032AFE8DFE4771F231F59F4B7F44F50547539323C15BF`
 - ZIP: `5E49163A93531B5B905932CA7DB4D2BF8DE736CE406C05759B59F365430AFDCA`
 
+## Public release receipt
+
+The [1.5.2 release](https://github.com/kumatech112/Server_Bot_Tracker/releases/tag/v1.5.2) is published from source commit `3983d9c`. Its [tag workflow](https://github.com/kumatech112/Server_Bot_Tracker/actions/runs/38702311146) passed all 106 checks, including both real uninstaller entry routes and clean cancellation. The main workflow also passed.
+
+An independent download of the public Setup is version 1.5.2.0 and matches the exact installer hash verified in the tag workflow. The live latest manifest identifies v1.5.2, the expected notes and two-file update package.
+
+- Public app EXE (CI): `08A8E741B088A11BC47FD964FCC2836A7F7F20ED27CD25988AFC6DC72E36765B`
+- Public Setup EXE (CI and independent download): `F98E5F6C68E36A6012CAFE0AEB6B7A11B5625DDD4ED17A4221DB26078C6FF579`
+- Public ZIP (manifest): `76EDA34EFC762C512F0E95E2934643EABAFFC595552C666F84B49D75F0F20422` (360,922 bytes)
+- Download evidence: `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\public-1.5.2-20261015-145935`
+
+Local and CI compiler outputs are checked separately. No message announcement was published. The affected installed copy has not been replaced because its actual folder is not yet known.
+
 ## Scope and installed-copy boundary
 
 Read-only inspection found no running product process. This computer's registered default folder no longer contains the application or Uninstall.exe, despite the remaining 1.4 registry entry. No stale registration or production files were deleted. The user was asked for the folder of the affected copy so that it can be repaired directly if available. All deletion tests remain isolated fixtures.
