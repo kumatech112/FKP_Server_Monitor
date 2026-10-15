@@ -32,7 +32,15 @@ Evidence: `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\verification-20261015
 
 ## Public release verification
 
-Version 1.2 was previously published and its real HTTPS download and isolated older-version upgrade passed. Version 1.3 publication and live download verification are recorded after the matching tag is pushed. Local and GitHub builds are separate compiler outputs and their hashes are checked separately.
+The [stable 1.3.0 release](https://github.com/kumatech112/Server_Bot_Tracker/releases/tag/v1.3.0) is published from source commit `d68c627`, with setup, portable ZIP and update manifest assets. Both main and tag workflows succeeded; the [tag run](https://github.com/kumatech112/Server_Bot_Tracker/actions/runs/38689301068) passed all 78 checks before publishing. Its verified EXE hashes match the independently downloaded public assets.
+
+The original 1.2 application's actual `ReleaseChannel.GetLatestAsync`, `GetAnnouncementsAsync` and `PrepareAsync` read the live public channel and downloaded/validated the 1.3 package. The original 1.2 `UpdateInstaller.Apply` then upgraded an isolated 1.2 install to the branded 1.3 executable, preserving a fixture data file. This checks backward compatibility of the updater already distributed to users, without replacing an active user installation. The announcement feed still contains zero items.
+
+- Public application EXE SHA-256: `1069EFFAC2FEE6B2A1284A8F80FBC5CE6BB9F1AEA9DD390D9F98EF84805D126A`.
+- Public setup EXE SHA-256: `59D5D9D22BDDFDCD59B18C747A56B54861C82135C52894F4096F1B0ABA7EBE77`.
+- Public ZIP SHA-256: `6695341C1666F8225B7CAFB03BBBC44812A71C84A22CCEBCF5867EAC721FDFFD` (360,685 bytes).
+
+Live integration evidence: `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\live-1.2-to-1.3-20261015-125437`. Local and GitHub builds are separate compiler outputs and their hashes are checked separately.
 
 ## Boundaries
 
