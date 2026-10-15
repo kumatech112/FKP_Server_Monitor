@@ -55,6 +55,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Prepare-Announce
 
 workflow ใน `.github/workflows/release.yml` จะ build, package และ verify ก่อนเผยแพร่ เมื่อ push tag รุ่น เช่น `v1.3.0` จะตรวจว่าตรงกับรุ่นโปรแกรมแล้วสร้าง stable release และตั้งเป็น Latest ส่วนการกด Run workflow เองจะสร้าง **Draft release** ซึ่งต้อง Publish จึงจะส่งอัปเดต
 
+การ push เข้า main จะ build และทดสอบโดยไม่สร้างรุ่นโปรแกรมใหม่ พร้อมตรวจว่ามีช่องทางประกาศแล้ว ขั้นตอนประกาศใช้ PowerShell 7 เพื่อจัดการกรณียังไม่มี release ได้ถูกต้อง
+
 ใช้ `GITHUB_TOKEN` ที่ GitHub สร้างให้ workflow โดยให้สิทธิ์ Contents write ใน repository นี้ ไม่ต้องเพิ่ม `RELEASES_TOKEN` และไม่ฝังข้อมูลรับรองลงในโปรแกรม
 
 เมื่อยังไม่มี release `announcements` workflow จะสร้างช่องทางพร้อมไฟล์ว่าง จึงไม่มีข้อความประกาศส่งถึงผู้ใช้ การ commit/push โค้ดเข้า main อย่างเดียวไม่เผยแพร่อัปเดต ต้อง push tag รุ่นด้วย
