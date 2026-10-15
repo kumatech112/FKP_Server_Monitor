@@ -115,7 +115,7 @@ Control Panel registration includes the quoted uninstall command, version, publi
 
 ### Selected installation folder (1.5)
 
-Setup reads the previous HKCU InstallLocation through `InstallLocation.ReadRemembered`, falling back to the original per-user default for absent/invalid values. The destination page accepts typed absolute paths or a native folder selection. In 1.5.3, `ForDestination` turns a typed drive/share root into a ServerBotTracker subfolder, while `ForBrowseSelection` appends that folder to a parent selection and retains an existing product folder. `Normalize` still rejects direct root targets, blank, relative, device and invalid paths at the file-engine boundary. `ValidateProductFiles` prevents overwriting unrelated colliding files. Confirmation shows the resolved destination; advancing creates no directories or write probes.
+Current Setup reads the machine directory through InstallationScope; InstallLocation.ReadRemembered remains available for legacy/isolated HKCU checks. The destination page accepts typed absolute paths or a native folder selection. In 1.6, `ForDestination` turns a typed drive/share root into a ServerBotTracker subfolder, while `ForBrowseSelection` appends that folder to a parent selection and retains an existing product folder. `Normalize` still rejects direct root targets, blank, relative, device and invalid paths at the file-engine boundary. `ValidateProductFiles` prevents overwriting unrelated colliding files. Confirmation shows the resolved destination; advancing creates no directories or write probes.
 
 Confirmation freezes the normalized folder passed to `Action<string>`. `Install` delegates to `InstallAt`, which takes the product mutex, revalidates ownership, creates same-folder staging, backs up all three owned files, extracts the exact two-file payload, copies the uninstaller, and creates the shortcut/Control Panel entry using the same target. Staging cleanup and mutex release also run after directory creation errors. Completion launches the selected EXE with its folder as WorkingDirectory. Choosing a different folder leaves the previous copy in place and redirects the single product registration; no recursive move/delete is performed. Version 1.5 uninstallers preserve registration belonging to another folder; legacy uninstallers retain their older behavior.
 
@@ -248,7 +248,7 @@ All current application functions are listed below. Methods with the same name b
 | `tools/setup/Setup.cs / Setup` | `Shortcut getter` | Resolve the legacy per-user Start menu shortcut |
 | `tools/setup/Setup.cs / Setup` | `Main` | Detect direct Uninstall.exe launch and route Thai setup UI, silent install and uninstall helper |
 | `tools/setup/Setup.cs / Setup` | `AcquireInstance` | Coordinate with the dashboard's per-user mutex |
-| `tools/setup/Setup.cs / Setup` | `Install` | Bind the selected target to the product shortcut and registry paths |
+| `tools/setup/Setup.cs / Setup` | `Install` | Request machine installation, then migrate the original user legacy copy |
 | `tools/setup/Setup.cs / Setup` | `InstallAt` | Validate and install payload, uninstaller, shortcut and registry metadata at an explicit target |
 | `tools/setup/Setup.cs / Setup` | `Remove` | Remove only known installed files and product registration |
 

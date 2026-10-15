@@ -33,6 +33,20 @@ The owner's GitHub Actions environment adds real Program Files/common-shortcut/H
 
 The existing published release is used for the administrator update test, so the new release is not published before this verification. If another workflow publishes during a download, only an official-manifest mismatch is retried with the new official package. The normal local process does not bypass or automate Windows consent.
 
+## Public release receipt
+
+The [1.6.0 release](https://github.com/kumatech112/Server_Bot_Tracker/releases/tag/v1.6.0) is published from `915d618`. Its [tag workflow](https://github.com/kumatech112/Server_Bot_Tracker/actions/runs/38718144009) passed all **127 checks** before publication, including the real administrator install, protected-file update and uninstall processes. The corresponding main workflow passed as well.
+
+The independently downloaded public Setup hash matches the tag runner's verified installer hash. The original 1.2 client also read the live latest manifest and empty announcement feed, downloaded/validated the public 1.6.0 ZIP through its unchanged PrepareAsync, and applied it through its original UpdateInstaller.Apply to an isolated Thai path while preserving data. Its resulting app hash matches the tag runner's app hash. This legacy test verifies the two-file package path; it does not migrate that fixture into Program Files.
+
+- Public app EXE: `CB356E112828B292D01B17AB76DEBEDE276E398CAED86E20A7B9223784ED878F`
+- Public Setup EXE: `E39F2FD812FCBA373512CD88630A37E973AE960A6D6AFB67D77B9538957DA724`
+- Public ZIP: `D2B54C6EBEC89C0D74317BA55DB8636573FDE763EB95C5F3A867EBB66C75DA54` (363,177 bytes)
+- Download evidence: `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\public-1.6.0-20261015-171014`
+- Original-client evidence: `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\live-1.2-to-1.6.0-20261015-171124`
+
+Local and CI compiler outputs are checked against their own verified hashes. Running the new Setup once is required for the new machine scope and uninstaller.
+
 ## Boundaries and delivery behavior
 
 - The local user's production installation, registry and server list were not changed. Purpose-created files, registry keys and ACLs were used for local checks; fixture ACLs were restored explicitly. One early fixture restoration attempt did not mark its DACL as modified; the fixture-only test was corrected and re-run successfully.
