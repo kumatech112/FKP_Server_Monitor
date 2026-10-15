@@ -30,6 +30,19 @@ Final evidence: `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\verification-20
 
 The first 1.5.0 tag workflow stopped during the real custom-folder installation check: WScript.Shell shortcut creation raised an ArgumentException on the English Windows runner. No release assets were published. Version 1.5.1 replaces that shortcut call with native Unicode IShellLinkW/IPersistFile; checks load the saved link and compare executable, working folder and icon. The failed tag remains in Git history rather than being rewritten.
 
+## Current public release
+
+The [1.5.1 release](https://github.com/kumatech112/Server_Bot_Tracker/releases/tag/v1.5.1) is published from commit `192b3f0`. The [tag workflow](https://github.com/kumatech112/Server_Bot_Tracker/actions/runs/38697061189) and main workflow both succeeded. The tag run passed all 102 checks before publishing its three assets.
+
+An original 1.2 client read the live latest manifest and empty announcement feed, downloaded/validated the public 1.5.1 ZIP using its unchanged PrepareAsync, and applied it with its original UpdateInstaller.Apply into an isolated Thai folder with spaces. Fixture data survived. The independent public Setup download and updated application hashes match the tag workflow's verified hashes.
+
+- Public app EXE: `C80FBF1775BC5C16BC426C9BB9FC4FB484EC86F116078090D56DE70530FB021C`
+- Public Setup EXE: `9FCA4FACF82FC99D9CDF434D742FBEFD17F10E288E118D19E0AD4CB4F0219290`
+- Public ZIP: `01D026A10FBD258CF3D1CE25A11339A00F6F0C0931C74EBDDC78933536824777` (360,921 bytes)
+- Live integration evidence: `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\live-1.2-to-1.5.1-20261015-141130`
+
+Local and CI outputs are separate compiler builds, so each is checked against its own verified hashes. No announcement message was published. Users must run the current Setup for the folder chooser and current uninstaller.
+
 ## Current delivery boundaries
 
 Tests use purpose-created folders, shortcuts and HKCU keys outside the product registration. The user's real installation was not moved or removed during this change. Protected destinations require existing write permission; setup runs as the current user and does not automatically elevate. UNC parsing is verified, but installation/update over a production share was not exercised.

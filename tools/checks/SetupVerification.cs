@@ -204,7 +204,7 @@ internal static class SetupVerification
                 catch (TargetInvocationException exception) { if (!(exception.InnerException is IOException)) throw; }
             }
             assert(rejectsInvalid, "Destination validation rejects blank, relative, drive/share roots and invalid paths");
-            assert((string)normalize.Invoke(null, new object[] { @"\\server\share\Server Bot Tracker\" }) == @"\\server\share\Server Bot Tracker", "An absolute UNC subfolder is retained without probing or writing to the share");
+            assert((string)normalize.Invoke(null, new object[] { @"\\server\share\Server Bot Tracker\" }) == @"\\server\share\Server Bot Tracker", "An absolute UNC subfolder is retained without writing to the share");
             string collision = Path.Combine(root, "unrelated-install");
             Directory.CreateDirectory(collision);
             string unrelated = Path.Combine(collision, "Uninstall.exe");
