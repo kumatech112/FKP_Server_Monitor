@@ -120,12 +120,26 @@ namespace ServerBotTracker
             {
                 using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\KumaServerBotTracker", true))
                 {
-                    if (key != null && String.Equals(key.GetValue("InstallLocation") as string, target, StringComparison.OrdinalIgnoreCase))
+                    if (key != null && MatchesInstallLocation(key.GetValue("InstallLocation") as string, target))
                         key.SetValue("DisplayVersion", manifest.Version);
                 }
             }
             catch (UnauthorizedAccessException) { /* The updated program remains usable if Windows metadata is read-only. */ }
             catch (System.Security.SecurityException) { /* Do not fail a verified binary update for optional display metadata. */ }
+        }
+
+        public static bool MatchesInstallLocation(string registered, string target)
+        {
+            if (String.IsNullOrWhiteSpace(registered) || String.IsNullOrWhiteSpace(target)) return false;
+            try
+            {
+                string first = Path.GetFullPath(registered).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string second = Path.GetFullPath(target).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                return String.Equals(first, second, StringComparison.OrdinalIgnoreCase);
+            }
+            catch (ArgumentException) { return false; }
+            catch (NotSupportedException) { return false; }
+            catch (PathTooLongException) { return false; }
         }
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
@@ -21,18 +22,18 @@ internal static class Setup
     {
         try
         {
-            if (args.Length == 1 && args[0] == "--remove")
-            {
-                Remove();
-                return 0;
-            }
             if (args.Length == 1 && args[0] == "--uninstall")
             {
+                StartUninstallWizard();
+                return 0;
+            }
+            if (args.Length == 3 && args[0] == "--uninstall-wizard")
+            {
+                WaitForLauncher(args[1], args[2]);
                 Application.EnableVisualStyles();
-                if (MessageBox.Show("ถอนการติดตั้ง Server Bot Tracker?\nรายการเซิร์ฟเวอร์และข้อมูลผู้ใช้จะยังคงอยู่", Product, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return 0;
-                string helper = Path.Combine(Path.GetTempPath(), "ServerBotTracker-uninstall-" + Guid.NewGuid().ToString("N") + ".exe");
-                File.Copy(Assembly.GetExecutingAssembly().Location, helper);
-                Process.Start(new ProcessStartInfo(helper, "--remove") { UseShellExecute = false, CreateNoWindow = true });
+                Application.SetCompatibleTextRenderingDefault(false);
+                using (var form = new SetupForm(Target, Remove, true))
+                    Application.Run(form);
                 return 0;
             }
             if (args.Length == 1 && args[0] == "/silent")
@@ -40,6 +41,7 @@ internal static class Setup
                 Install();
                 return 0;
             }
+            if (args.Length != 0) throw new ArgumentException("พารามิเตอร์ตัวติดตั้งไม่ถูกต้อง");
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             using (var form = new SetupForm(Target, Install))
@@ -51,6 +53,32 @@ internal static class Setup
             if (args.Length == 0 || args[0] != "/silent") MessageBox.Show(exception.Message, Product, MessageBoxButtons.OK, MessageBoxIcon.Error);
             return 1;
         }
+    }
+
+    private static void StartUninstallWizard()
+    {
+        string helper = Path.Combine(Path.GetTempPath(), "ServerBotTracker-uninstall-" + Guid.NewGuid().ToString("N") + ".exe");
+        File.Copy(Assembly.GetExecutingAssembly().Location, helper);
+        using (Process launcher = Process.GetCurrentProcess())
+        {
+            string arguments = "--uninstall-wizard " + launcher.Id.ToString(CultureInfo.InvariantCulture) + " " + launcher.StartTime.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture);
+            Process.Start(new ProcessStartInfo(helper, arguments) { UseShellExecute = false, CreateNoWindow = true });
+        }
+    }
+
+    private static void WaitForLauncher(string id, string started)
+    {
+        int processId = Int32.Parse(id, CultureInfo.InvariantCulture);
+        long ticks = Int64.Parse(started, CultureInfo.InvariantCulture);
+        try
+        {
+            using (Process launcher = Process.GetProcessById(processId))
+            {
+                if (launcher.StartTime.ToUniversalTime().Ticks != ticks || !launcher.WaitForExit(10000))
+                    throw new IOException("ตัวเริ่มถอนการติดตั้งยังไม่ปิด กรุณาลองใหม่");
+            }
+        }
+        catch (ArgumentException) { /* The launcher has already exited. */ }
     }
 
     private static Mutex AcquireInstance()
@@ -115,6 +143,11 @@ internal static class Setup
                     key.SetValue("DisplayIcon", Path.Combine(Target, "ServerBotTracker.exe"));
                     key.SetValue("UninstallString", "\"" + Path.Combine(Target, "Uninstall.exe") + "\" --uninstall");
                     key.SetValue("URLInfoAbout", "https://github.com/kumatech112/Server_Bot_Tracker");
+                    key.SetValue("NoModify", 1, RegistryValueKind.DWord);
+                    key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
+                    key.SetValue("InstallDate", DateTime.Today.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
+                    long installedBytes = new FileInfo(Path.Combine(Target, "ServerBotTracker.exe")).Length + new FileInfo(Path.Combine(Target, "Uninstall.exe")).Length + new FileInfo(Path.Combine(Target, "ServerBotTracker.exe.config")).Length;
+                    key.SetValue("EstimatedSize", (int)((installedBytes + 1023) / 1024), RegistryValueKind.DWord);
                 }
             }
             catch
@@ -138,16 +171,29 @@ internal static class Setup
 
     private static void Remove()
     {
+        RemoveInstallation(Target, Shortcut, RegistryKey);
+    }
+
+    private static void RemoveInstallation(string targetDirectory, string shortcutPath, string registryPath)
+    {
         using (Mutex instance = AcquireInstance())
         {
-            if (String.Equals(Path.GetFullPath(Assembly.GetExecutingAssembly().Location), Path.Combine(Target, "Uninstall.exe"), StringComparison.OrdinalIgnoreCase))
-                throw new IOException("ถอนการติดตั้งต้องทำงานผ่านตัวช่วยชั่วคราว");
-            foreach (string file in new[] { "ServerBotTracker.exe", "ServerBotTracker.exe.config", "Uninstall.exe" })
-                if (File.Exists(Path.Combine(Target, file))) File.Delete(Path.Combine(Target, file));
-            if (Directory.Exists(Target) && Directory.GetFileSystemEntries(Target).Length == 0) Directory.Delete(Target, false);
-            if (File.Exists(Shortcut)) File.Delete(Shortcut);
-            Registry.CurrentUser.DeleteSubKeyTree(RegistryKey, false);
-            instance.ReleaseMutex();
+            try
+            {
+                string fullTarget = Path.GetFullPath(targetDirectory);
+                string target = fullTarget.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string root = Path.GetPathRoot(fullTarget).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                if (target.Length == 0 || String.Equals(target, root, StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("ตำแหน่งถอนการติดตั้งไม่ถูกต้อง");
+                if (String.Equals(Path.GetFullPath(Assembly.GetExecutingAssembly().Location), Path.Combine(target, "Uninstall.exe"), StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("ถอนการติดตั้งต้องทำงานผ่านตัวช่วยชั่วคราว");
+                foreach (string file in new[] { "ServerBotTracker.exe", "ServerBotTracker.exe.config", "Uninstall.exe" })
+                    if (File.Exists(Path.Combine(target, file))) File.Delete(Path.Combine(target, file));
+                if (Directory.Exists(target) && Directory.GetFileSystemEntries(target).Length == 0) Directory.Delete(target, false);
+                if (File.Exists(shortcutPath)) File.Delete(shortcutPath);
+                Registry.CurrentUser.DeleteSubKeyTree(registryPath, false);
+            }
+            finally { instance.ReleaseMutex(); }
         }
     }
 }

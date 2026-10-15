@@ -51,11 +51,13 @@ Automatic downloads and local server alerts can be toggled in the Thai notificat
 
 Operator instructions: [Thai publishing guide](docs/RELEASES.th.md). A code commit by itself does not publish an update.
 
-## Branding and guided setup (1.3)
+## Branding and classic setup (1.4)
 
 The supplied robot icon is embedded in the application, setup and uninstall EXEs, and appears in the dashboard, window/taskbar icons, tray and Start menu shortcut. Dialogs use the same product icon. The existing light/blue colors and ping-only layout remain.
 
-Setup now presents a branded welcome screen, installation progress, a completion screen with optional launch, and a visible retry state on failure. Installation runs on a dedicated STA thread so the window stays responsive; closing is blocked while files are being installed. This uses the existing per-user installation engine and needs no additional installer framework.
+Setup follows a classic wizard layout with blue robot artwork, white pages and standard Next/Back/Cancel buttons: welcome, installation confirmation, progress and completion. Failure stays visible and can be retried. A matching uninstall wizard opens from **Control Panel > Programs and Features > Server Bot Tracker > Uninstall/Change**. It removes the program, shortcut and registration while retaining saved server lists and unrelated files.
+
+Install or removal runs on a dedicated STA thread so the window stays responsive; closing is blocked during file changes. The installer registers version, publisher, icon, estimated size and uninstall command for the current Windows user. Run the new Setup once to install the new uninstall wizard: portable ZIP updates continue replacing only the application and runtime config, and do not replace an older uninstaller.
 
 ## Saved server lists
 

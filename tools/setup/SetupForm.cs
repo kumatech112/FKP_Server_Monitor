@@ -10,168 +10,189 @@ using ServerBotTracker;
 
 internal sealed class SetupForm : Form
 {
+    private enum WizardPage { Welcome, Ready, Working, Complete, Failed }
     private readonly string targetDirectory;
-    private readonly Action installAction;
-    private readonly Button primary = Theme.Button("ติดตั้ง", true);
-    private readonly Button cancel = Theme.Button("ยกเลิก", false);
-    private readonly Label title = Theme.Label("พร้อมติดตั้งโปรแกรม");
-    private readonly Label detail = Theme.Label("ตรวจสอบเซิร์ฟเวอร์หลายเครื่องในหน้าจอเดียว\nด้วย Ping พร้อมอัปเดตและการแจ้งเตือน");
-    private readonly Label status = Theme.Label("ติดตั้งสำหรับผู้ใช้ Windows คนปัจจุบัน");
-    private readonly ProgressBar progress = new ProgressBar { Name = "InstallProgress", Dock = DockStyle.Fill, Visible = false };
-    private readonly CheckBox launch = new CheckBox { Name = "LaunchAfterSetup", Text = "เปิด Server Bot Tracker เมื่อกดเสร็จสิ้น", AutoSize = true, Checked = true, Visible = false };
-    private bool installing;
-    private bool complete;
+    private readonly Action operation;
+    private readonly bool uninstalling;
+    private readonly Button primary = new Button { Name = "WizardNext", Size = new Size(92, 28) };
+    private readonly Button back = new Button { Name = "WizardBack", Text = "< ย้อนกลับ", Size = new Size(92, 28) };
+    private readonly Button cancel = new Button { Name = "WizardCancel", Text = "ยกเลิก", Size = new Size(92, 28) };
+    private readonly Label title = new Label { Name = "WizardTitle", Dock = DockStyle.Fill, Font = new Font("Tahoma", 14F, FontStyle.Bold) };
+    private readonly Label detail = new Label { Name = "WizardDetail", Dock = DockStyle.Fill };
+    private readonly Label status = new Label { Name = "WizardStatus", Dock = DockStyle.Fill };
+    private readonly ProgressBar progress = new ProgressBar { Name = "WizardProgress", Dock = DockStyle.Fill };
+    private readonly CheckBox launch = new CheckBox { Name = "LaunchAfterSetup", Text = "เปิด Server Bot Tracker", AutoSize = true, Checked = true };
+    private readonly TableLayoutPanel content = new TableLayoutPanel();
+    private readonly Panel location = new Panel { Dock = DockStyle.Fill };
+    private WizardPage page;
 
-    public SetupForm(string target, Action install)
+    public SetupForm(string target, Action install) : this(target, install, false) { }
+
+    public SetupForm(string target, Action performOperation, bool uninstall)
     {
         targetDirectory = target;
-        installAction = install;
-        Theme.ApplyDialog(this, "ติดตั้ง Server Bot Tracker", new Size(780, 490));
-        ShowInTaskbar = true;
+        operation = performOperation;
+        uninstalling = uninstall;
+        Branding.ApplyTo(this);
+        Text = "Server Bot Tracker " + Assembly.GetExecutingAssembly().GetName().Version.ToString(3) + (uninstall ? " • ถอนการติดตั้ง" : " • ติดตั้ง");
+        ClientSize = new Size(640, 420);
+        Font = new Font("Tahoma", 9.5F);
+        ForeColor = Color.Black;
+        BackColor = Color.White;
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        MaximizeBox = false;
         MinimizeBox = true;
+        AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterScreen;
         BuildLayout();
-        primary.Name = "InstallAction";
-        cancel.Name = "CancelSetup";
         primary.Click += RunPrimaryAction;
+        back.Click += delegate { ShowPage(WizardPage.Welcome); };
         cancel.Click += delegate { Close(); };
-        FormClosing += PreventCloseDuringInstallation;
+        FormClosing += PreventCloseDuringOperation;
         Shown += delegate { primary.Focus(); };
         AcceptButton = primary;
         CancelButton = cancel;
+        ShowPage(WizardPage.Welcome);
     }
 
     private void BuildLayout()
     {
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2, Margin = Padding.Empty };
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 265));
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 176));
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 76));
-        var brand = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(25, 32, 25, 22), ColumnCount = 1, RowCount = 4, Margin = Padding.Empty };
-        brand.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        brand.RowStyles.Add(new RowStyle(SizeType.Absolute, 188));
-        brand.RowStyles.Add(new RowStyle(SizeType.Absolute, 66));
-        brand.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        brand.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        PictureBox logo = Branding.CreateLogoBox(new Size(174, 174));
-        logo.Anchor = AnchorStyles.Top;
-        brand.Controls.Add(logo, 0, 0);
-        Label product = Theme.Label("Server Bot\nTracker");
-        product.Dock = DockStyle.Fill;
-        product.Font = new Font("Tahoma", 20F, FontStyle.Bold);
-        product.TextAlign = ContentAlignment.MiddleCenter;
-        product.Margin = Padding.Empty;
-        brand.Controls.Add(product, 0, 1);
-        Label version = Theme.Label("รุ่น " + Assembly.GetExecutingAssembly().GetName().Version.ToString(3));
-        version.Dock = DockStyle.Fill;
-        version.TextAlign = ContentAlignment.MiddleCenter;
-        version.ForeColor = Theme.Blue;
-        brand.Controls.Add(version, 0, 2);
-        Label tagline = Theme.Label("ตรวจด้วย Ping\nรู้ผลได้ในหน้าจอเดียว");
-        tagline.Dock = DockStyle.Fill;
-        tagline.TextAlign = ContentAlignment.TopCenter;
-        brand.Controls.Add(tagline, 0, 3);
-        root.Controls.Add(brand, 0, 0);
-
-        var content = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(30, 35, 30, 18), ColumnCount = 1, RowCount = 7, Margin = Padding.Empty };
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
+        var artwork = new WizardArtwork { Name = "WizardArtwork", Dock = DockStyle.Fill, Margin = Padding.Empty };
+        PictureBox logo = Branding.CreateLogoBox(new Size(142, 142));
+        artwork.Controls.Add(logo);
+        artwork.SizeChanged += delegate { logo.Location = new Point((artwork.Width - logo.Width) / 2, (artwork.Height - logo.Height) / 2); };
+        root.Controls.Add(artwork, 0, 0);
+        content.Dock = DockStyle.Fill;
+        content.Padding = new Padding(21, 24, 21, 12);
+        content.ColumnCount = 1;
+        content.RowCount = 6;
+        content.Margin = Padding.Empty;
         content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        content.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
-        content.RowStyles.Add(new RowStyle(SizeType.Absolute, 65));
-        content.RowStyles.Add(new RowStyle(SizeType.Absolute, 31));
-        content.RowStyles.Add(new RowStyle(SizeType.Absolute, 67));
-        content.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-        content.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
+        content.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
         content.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        title.Name = "InstallTitle";
-        title.Font = new Font("Tahoma", 18F, FontStyle.Bold);
-        title.Dock = DockStyle.Fill;
+        content.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
+        content.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
+        content.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
+        content.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
         title.Margin = Padding.Empty;
-        content.Controls.Add(title, 0, 0);
-        detail.Name = "InstallDetail";
-        detail.Dock = DockStyle.Fill;
         detail.Margin = Padding.Empty;
+        status.Margin = new Padding(0, 8, 0, 0);
+        location.Controls.Add(new TextBox { Name = "InstallLocation", Text = targetDirectory, ReadOnly = true, Multiline = true, Dock = DockStyle.Fill, BackColor = Color.White, TabStop = false });
+        location.Controls.Add(new Label { Text = "ตำแหน่งโปรแกรม", Dock = DockStyle.Top, Height = 23 });
+        content.Controls.Add(title, 0, 0);
         content.Controls.Add(detail, 0, 1);
-        content.Controls.Add(Theme.Label("ตำแหน่งติดตั้ง"), 0, 2);
-        var location = new TextBox { Name = "InstallLocation", Text = targetDirectory, ReadOnly = true, Multiline = true, Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, Margin = new Padding(0, 0, 0, 12), TabStop = false };
-        content.Controls.Add(location, 0, 3);
-        status.Name = "InstallStatus";
-        status.Dock = DockStyle.Fill;
-        status.Margin = Padding.Empty;
-        content.Controls.Add(status, 0, 4);
-        content.Controls.Add(progress, 0, 5);
-        launch.Margin = new Padding(0, 12, 0, 0);
-        content.Controls.Add(launch, 0, 6);
+        content.Controls.Add(location, 0, 2);
+        content.Controls.Add(status, 0, 3);
+        content.Controls.Add(progress, 0, 4);
+        content.Controls.Add(launch, 0, 5);
         root.Controls.Add(content, 1, 0);
-
-        var footer = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, WrapContents = false, Padding = new Padding(24, 18, 24, 16), BackColor = Color.White, Margin = Padding.Empty };
-        primary.MinimumSize = new Size(140, 40);
-        cancel.MinimumSize = new Size(110, 40);
-        footer.Controls.Add(primary);
+        var footer = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, WrapContents = false, Padding = new Padding(13, 13, 13, 11), BackColor = SystemColors.Control, Margin = Padding.Empty };
+        footer.Paint += delegate(object sender, PaintEventArgs args) { args.Graphics.DrawLine(SystemPens.ControlDark, 0, 0, footer.Width, 0); };
+        cancel.Margin = new Padding(9, 0, 0, 0);
+        primary.Margin = Padding.Empty;
+        back.Margin = new Padding(0, 0, 3, 0);
         footer.Controls.Add(cancel);
+        footer.Controls.Add(primary);
+        footer.Controls.Add(back);
         root.Controls.Add(footer, 0, 1);
         root.SetColumnSpan(footer, 2);
         Controls.Add(root);
     }
 
-    private async void RunPrimaryAction(object sender, EventArgs args)
+    private void ShowPage(WizardPage next)
     {
-        if (installing) return;
-        if (complete)
+        page = next;
+        bool working = page == WizardPage.Working;
+        bool complete = page == WizardPage.Complete;
+        bool ready = page == WizardPage.Ready;
+        bool failed = page == WizardPage.Failed;
+        primary.Enabled = !working;
+        cancel.Enabled = !working;
+        cancel.Visible = !complete;
+        back.Visible = !complete && !working;
+        back.Enabled = ready || failed;
+        location.Visible = ready;
+        status.Visible = working || complete || failed;
+        progress.Visible = working || complete;
+        launch.Visible = complete && !uninstalling;
+        content.RowStyles[2].Height = ready ? 76 : 0;
+        content.RowStyles[3].Height = status.Visible ? 70 : 0;
+        content.RowStyles[4].Height = progress.Visible ? 24 : 0;
+        content.RowStyles[5].Height = launch.Visible ? 32 : 0;
+        primary.Text = complete ? "เสร็จสิ้น" : (failed ? "ลองอีกครั้ง" : (ready ? (uninstalling ? "ถอนการติดตั้ง" : "ติดตั้ง") : "ถัดไป >"));
+        if (page == WizardPage.Welcome)
         {
-            try
-            {
-                if (launch.Checked)
-                    Process.Start(new ProcessStartInfo(Path.Combine(targetDirectory, "ServerBotTracker.exe")) { UseShellExecute = true, WorkingDirectory = targetDirectory });
-                Close();
-            }
-            catch (Exception exception)
-            {
-                status.Text = "เปิดโปรแกรมไม่ได้: " + exception.Message;
-            }
-            return;
+            title.Text = uninstalling ? "ยินดีต้อนรับสู่ตัวช่วย\nถอนการติดตั้ง" : "ยินดีต้อนรับสู่การติดตั้ง\nServer Bot Tracker";
+            detail.Text = uninstalling
+                ? "ตัวช่วยนี้จะนำ Server Bot Tracker ออกจากเครื่องของคุณ\n\nกรุณาปิดโปรแกรมก่อนดำเนินการ\nรายการเซิร์ฟเวอร์และการตั้งค่าส่วนตัวจะยังคงอยู่\n\nคลิก ถัดไป เพื่อดำเนินการต่อ"
+                : "ตัวช่วยนี้จะแนะนำขั้นตอนการติดตั้ง Server Bot Tracker\n\nกรุณาปิดโปรแกรมก่อนเริ่มติดตั้ง เพื่อให้สามารถอัปเดตไฟล์โปรแกรมได้ครบถ้วน\n\nคลิก ถัดไป เพื่อดำเนินการต่อ";
         }
-        installing = true;
-        primary.Enabled = false;
-        cancel.Enabled = false;
-        title.Text = "กำลังติดตั้งโปรแกรม";
-        status.Text = "กำลังคัดลอกไฟล์และสร้างทางลัด...";
-        progress.Style = ProgressBarStyle.Marquee;
-        progress.Visible = true;
-        try
+        else if (ready)
         {
-            await RunInstallationAsync(installAction);
-            complete = true;
-            title.Text = "ติดตั้งเรียบร้อยแล้ว";
-            detail.Text = "พร้อมใช้งาน Server Bot Tracker\nเปิดได้จาก Start menu หรือกดเสร็จสิ้น";
+            title.Text = uninstalling ? "พร้อมถอนการติดตั้ง" : "พร้อมติดตั้งโปรแกรม";
+            detail.Text = uninstalling ? "คลิก ถอนการติดตั้ง เพื่อนำโปรแกรมและทางลัดออก\nไฟล์รายการเซิร์ฟเวอร์และการตั้งค่าจะไม่ถูกลบ" : "โปรแกรมจะติดตั้งสำหรับผู้ใช้ Windows คนปัจจุบัน\nและเพิ่มทางลัดใน Start menu\n\nคลิก ติดตั้ง เพื่อเริ่มดำเนินการ";
+        }
+        else if (working)
+        {
+            title.Text = uninstalling ? "กำลังถอนการติดตั้ง" : "กำลังติดตั้งโปรแกรม";
+            detail.Text = "กรุณารอสักครู่จนกว่าขั้นตอนจะเสร็จสมบูรณ์";
+            status.Text = uninstalling ? "กำลังนำไฟล์โปรแกรมและทางลัดออก..." : "กำลังคัดลอกไฟล์และสร้างทางลัด...";
+            progress.Style = ProgressBarStyle.Marquee;
+        }
+        else if (complete)
+        {
+            title.Text = uninstalling ? "ถอนการติดตั้งเสร็จสมบูรณ์" : "ติดตั้งเสร็จสมบูรณ์";
+            detail.Text = uninstalling ? "นำ Server Bot Tracker ออกจากเครื่องเรียบร้อยแล้ว\n\nคลิก เสร็จสิ้น เพื่อปิดตัวช่วย" : "พร้อมใช้งาน Server Bot Tracker\nเปิดโปรแกรมได้จาก Start menu\n\nคลิก เสร็จสิ้น เพื่อปิดตัวช่วย";
             status.Text = "รายการเซิร์ฟเวอร์และการตั้งค่าเดิมยังคงอยู่";
-            primary.Text = "เสร็จสิ้น";
-            launch.Visible = true;
-            cancel.Visible = false;
             progress.Style = ProgressBarStyle.Blocks;
             progress.Value = 100;
         }
-        catch (Exception exception)
+        else
         {
-            title.Text = "ยังติดตั้งไม่สำเร็จ";
-            status.Text = exception.Message;
-            primary.Text = "ลองอีกครั้ง";
-            progress.Visible = false;
-        }
-        finally
-        {
-            installing = false;
-            primary.Enabled = true;
-            cancel.Enabled = true;
+            title.Text = uninstalling ? "ยังถอนการติดตั้งไม่สำเร็จ" : "ยังติดตั้งไม่สำเร็จ";
+            detail.Text = "ตรวจสอบข้อความด้านล่าง แล้วคลิก ลองอีกครั้ง\nหรือคลิก ย้อนกลับ เพื่อทบทวนขั้นตอน";
         }
     }
 
-    private static Task RunInstallationAsync(Action install)
+    private async void RunPrimaryAction(object sender, EventArgs args)
+    {
+        if (page == WizardPage.Working) return;
+        if (page == WizardPage.Welcome) { ShowPage(WizardPage.Ready); return; }
+        if (page == WizardPage.Complete)
+        {
+            try
+            {
+                if (!uninstalling && launch.Checked)
+                    Process.Start(new ProcessStartInfo(Path.Combine(targetDirectory, "ServerBotTracker.exe")) { UseShellExecute = true, WorkingDirectory = targetDirectory });
+                Close();
+            }
+            catch (Exception exception) { status.Text = "เปิดโปรแกรมไม่ได้: " + exception.Message; }
+            return;
+        }
+        ShowPage(WizardPage.Working);
+        try
+        {
+            await RunOperationAsync(operation);
+            ShowPage(WizardPage.Complete);
+        }
+        catch (Exception exception)
+        {
+            ShowPage(WizardPage.Failed);
+            status.Text = exception.Message;
+        }
+    }
+
+    private static Task RunOperationAsync(Action performOperation)
     {
         var completion = new TaskCompletionSource<bool>();
         var worker = new Thread(delegate()
         {
-            try { install(); completion.SetResult(true); }
+            try { performOperation(); completion.SetResult(true); }
             catch (Exception exception) { completion.SetException(exception); }
         });
         worker.IsBackground = true;
@@ -180,8 +201,22 @@ internal sealed class SetupForm : Form
         return completion.Task;
     }
 
-    private void PreventCloseDuringInstallation(object sender, FormClosingEventArgs args)
+    private void PreventCloseDuringOperation(object sender, FormClosingEventArgs args)
     {
-        if (installing) args.Cancel = true;
+        if (page == WizardPage.Working) args.Cancel = true;
+    }
+
+    private sealed class WizardArtwork : Panel
+    {
+        public WizardArtwork() { DoubleBuffered = true; }
+        protected override void OnPaint(PaintEventArgs args)
+        {
+            base.OnPaint(args);
+            args.Graphics.Clear(Color.FromArgb(15, 25, 54));
+            using (var top = new SolidBrush(Color.FromArgb(25, 43, 91)))
+                args.Graphics.FillPolygon(top, new[] { new Point(0, 0), new Point(Width, 0), new Point(Width, Height * 3 / 5), new Point(0, Height * 2 / 5) });
+            using (var stripe = new SolidBrush(Color.FromArgb(40, 65, 128)))
+                args.Graphics.FillPolygon(stripe, new[] { new Point(0, Height * 2 / 5), new Point(Width, Height * 3 / 5), new Point(Width, Height * 3 / 4), new Point(0, Height * 2 / 3) });
+        }
     }
 }

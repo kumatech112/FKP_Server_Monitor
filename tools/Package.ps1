@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Notes = 'Robot branding and guided Thai setup, preserving the existing colors.')
+param([string]$Notes = 'Classic Thai setup and uninstall wizards with Control Panel integration.')
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot

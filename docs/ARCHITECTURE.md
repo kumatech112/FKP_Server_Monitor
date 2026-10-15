@@ -91,11 +91,15 @@ Notification state is independent of `servers.json`: automatic-update preference
 
 The installer is a small native per-user Windows Forms setup compiled from `tools/setup/Setup.cs` and `SetupForm.cs`. It embeds the same two-file ZIP, installs below LocalAppData/Programs, creates one Start menu shortcut and one HKCU uninstall registration. It takes the same per-user instance mutex and asks users to close the dashboard first. Uninstall removes only its known files, shortcut and product registry key; user settings remain. Setup has no third-party build-tool dependency.
 
-## Product branding and setup flow (1.3)
+## Product branding and classic wizard flow (1.4)
 
 The owner supplied `server-tracker.ico` and a 512-pixel PNG. Unmodified copies live under `assets/branding`; both are embedded into both EXEs. The ICO is also passed to the compiler as `/win32icon`. `Branding` loads resources from its own assembly, allowing the same readable source to compile into the app and setup. The app sets its window/taskbar icon, adds a header logo, assigns the tray icon, and gives dialogs the product icon through `Theme.ApplyDialog`. Owned icon/image instances are disposed with their window or control. Start menu shortcuts explicitly use the application EXE's icon, and the uninstall copy inherits the setup icon. The portable ZIP remains exactly two files.
 
-The existing light/blue palette was preserved following the owner's explicit preference. No FxSound implementation or artwork was copied. The installer now separates its UI from its existing installation engine: welcome -> installing -> complete, with a failed -> retry path. `SetupForm.RunPrimaryAction` disables reentry and close while an installation is active. `RunInstallationAsync` executes the existing installation callback on a dedicated STA thread so COM shortcut creation and mutex ownership retain their original threading assumptions. The UI awaits completion and reports success only after the callback returns. Failure leaves the error visible and allows retry. Optional launch occurs only when the user clicks Finish with the checkbox enabled. No changes were made to ping, server-list schema, update validation or notification rules.
+The dashboard retains its existing light/blue palette. Setup now uses the owner's OBS-style reference: a navy artwork panel, white pages and native navigation buttons. A shared SetupForm runs in install or uninstall mode with explicit states: welcome -> confirmation -> working -> complete, plus failed -> retry and Back -> welcome. Next only advances to confirmation and performs no file operation. Operation execution uses a dedicated STA worker and prevents close/reentry while files change. Launch is offered only after installation, never after removal. No OBS artwork or implementation was copied.
+
+Control Panel registration includes the quoted uninstall command, version, publisher, icon, NoModify/NoRepair, installation date and estimated size. Its `--uninstall` entry copies the EXE to Temp and launches `--uninstall-wizard` with the launcher's PID and start time. The helper waits for that specific launcher to exit before showing the wizard, so the installed Uninstall.exe can later be deleted. No files are removed until confirmation. `RemoveInstallation` owns the product mutex, refuses volume/share roots, deletes only three known files, removes only its shortcut/registry entry, and deletes the product directory only if empty. Its mutex is released on both success and failure. User data and unrelated files/directories remain. The production entry uses fixed per-user paths; tests invoke the same private engine with isolated file and registry paths.
+
+The app updater still validates and replaces exactly two program files. It does not replace Uninstall.exe, so upgrading the installer UI requires running the new Setup once. Optional Control Panel version updates now compare normalized install paths, allowing trailing directory separators without matching a different installation. Ping behavior, settings schema and the dashboard layout are unchanged.
 
 `tools/Package.ps1` creates the ZIP, matching manifest and setup under the ignored release tree. `Prepare-Announcement.ps1` prepares text locally and sends nothing. The GitHub workflow builds and verifies the package, then publishes three assets in the same public repository when a matching version tag is pushed. A manual run creates a draft. It uses GitHub's built-in workflow token with Contents write permission; clients receive no credential. The workflow initializes an empty announcement feed if needed. Compiler input is explicitly UTF-8 to preserve Thai on English Windows runners. Windows Authenticode signing is optional owner infrastructure via `tools/Sign.ps1`; HTTPS/SHA-256 validation is not a Windows publisher certificate.
 
@@ -219,10 +223,16 @@ All current application functions are listed below. Methods with the same name b
 | `tools/setup/SetupForm.cs / SetupForm` | constructor | Apply product styling and bind installation, close and keyboard actions |
 | `tools/setup/SetupForm.cs / SetupForm` | `BuildLayout` | Compose branded welcome, destination, progress, completion and action areas |
 | `tools/setup/SetupForm.cs / SetupForm` | `RunPrimaryAction` | Handle installation, visible failure/retry, completion and optional app launch |
-| `tools/setup/SetupForm.cs / SetupForm` | `RunInstallationAsync` | Run the existing install callback on one STA worker and propagate its result |
-| `tools/setup/SetupForm.cs / SetupForm` | `PreventCloseDuringInstallation` | Prevent user closure while file installation is active |
+| `tools/setup/SetupForm.cs / SetupForm` | `RunOperationAsync` | Run install or removal on one STA worker and propagate its result |
+| `tools/setup/SetupForm.cs / SetupForm` | `PreventCloseDuringOperation` | Prevent user closure while installing or removing files |
 | `tools/setup/Setup.cs / Setup` | `Main` | Route interactive setup through the separated SetupForm while preserving silent/uninstall routes |
 | `tools/setup/Setup.cs / Setup` | `Install` | Preserve the existing engine and explicitly set the Start menu icon to the product EXE |
+| `tools/setup/SetupForm.cs / SetupForm` | `ShowPage` | Render state-specific text, navigation, progress, confirmation and completion |
+| `tools/setup/SetupForm.cs / WizardArtwork` | constructor / `OnPaint` | Draw the classic blue geometric artwork panel behind the supplied robot |
+| `tools/setup/Setup.cs / Setup` | `StartUninstallWizard` | Copy and launch the temporary UI helper with launcher identity |
+| `tools/setup/Setup.cs / Setup` | `WaitForLauncher` | Bound the wait for the exact original uninstaller process to exit |
+| `tools/setup/Setup.cs / Setup` | `RemoveInstallation` | Guard and remove only an explicit installation, shortcut and registration; preserve other content |
+| `src/UpdateInstaller.cs / UpdateInstaller` | `MatchesInstallLocation` | Match equivalent full install paths for optional Control Panel version metadata |
 
 ## Build and verification boundaries
 
