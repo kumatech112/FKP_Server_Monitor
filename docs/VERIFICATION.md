@@ -1,4 +1,44 @@
-# Verification: Server Bot Tracker 1.4
+# Verification: Server Bot Tracker 1.5
+
+Date: 2026-10-15 (Asia/Bangkok).
+
+The unchanged 1.4 build passed all 89 baseline checks before edits. The selected installation folder now flows through the wizard, file engine, shortcut, registry and temporary uninstaller handoff. Application ping behavior, settings, updater implementation and notification flows remain unchanged.
+
+## Current local verification
+
+**102 checks passed** on the final packaged application and installer. Compilation treats warnings as errors. The suite covers the existing persistence/migration, ping, GUI, cancellation, notifications, update validation/rollback and worker process checks, plus:
+
+- Editable destination page with Browse; invalid typed relative paths remain on that page with an error and no installation writes.
+- Back/Next retain the selected Thai path; confirmation is read-only, and the dedicated STA worker receives that exact normalized folder.
+- The real installer extracts its embedded payload into an isolated Thai path containing spaces. The real COM shortcut points to that executable and working directory.
+- Isolated HKCU registration records the selected location, icon and quoted uninstall command. The next Setup run reads that remembered path.
+- Blank, relative, drive/share root and invalid paths are rejected; an absolute UNC subfolder is normalized without writing to any share.
+- A colliding unrelated Uninstall.exe is retained and installation fails before program replacement or shortcut creation.
+- A real update is applied at the selected fixture path and preserves its uninstaller and unrelated data.
+- Removing one version 1.5 fixture after registering another preserves the newer registration/shortcut. Removing the current fixture clears its files and registration while retaining unrelated data in the old folder.
+- Locked-file uninstall/retry, no launch after removal, settings preservation and empty-directory cleanup remain verified.
+
+The destination and confirmation renders were inspected. Confirmation wraps long paths and provides vertical scrolling. The native folder chooser is wired to the Browse button; automated fixtures use typed paths rather than operating the native picker.
+
+Final evidence: `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\verification-20261015-140635-95e153ae`.
+
+- Application EXE: `DDF33F96DA37DD886F3EC06AC50038B95BFCD6F4C912A2CAAB122D2B136D84B8`
+- Setup EXE: `616B48E3586014C0F847A1D8DFEB2926EA802B26F241041C73090FD6F618342D`
+- ZIP: `FF8809A909A1E056CC503E6659CF2629B0FF0C83954D89493708CBBCFC4F1DFE`
+
+## Current delivery boundaries
+
+Tests use purpose-created folders, shortcuts and HKCU keys outside the product registration. The user's real installation was not moved or removed during this change. Protected destinations require existing write permission; setup runs as the current user and does not automatically elevate. UNC parsing is verified, but installation/update over a production share was not exercised.
+
+Choosing a new folder leaves the previous copy in place and redirects the single product registration. Registration ownership protection is in version 1.5 uninstallers; legacy uninstallers retain their previous behavior. Use the current Control Panel entry. The existing LocalAppData data path remains independent of the selected program folder.
+
+The installer is unsigned. Run the new Setup once to receive the folder chooser and current uninstaller; the two-file automatic update ZIP changes only the application and runtime config. Optional launch is disabled in the wizard fixture; the real application entry point is checked separately.
+
+Short commit message: `feat: support custom installation folders`
+
+---
+
+# Historical verification: Server Bot Tracker 1.4
 
 Date: 2026-10-15 (Asia/Bangkok).
 

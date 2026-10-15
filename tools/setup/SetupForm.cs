@@ -10,9 +10,9 @@ using ServerBotTracker;
 
 internal sealed class SetupForm : Form
 {
-    private enum WizardPage { Welcome, Ready, Working, Complete, Failed }
-    private readonly string targetDirectory;
-    private readonly Action operation;
+    private enum WizardPage { Welcome, Destination, Ready, Working, Complete, Failed }
+    private string targetDirectory;
+    private readonly Action<string> operation;
     private readonly bool uninstalling;
     private readonly Button primary = new Button { Name = "WizardNext", Size = new Size(92, 28) };
     private readonly Button back = new Button { Name = "WizardBack", Text = "< ย้อนกลับ", Size = new Size(92, 28) };
@@ -23,12 +23,14 @@ internal sealed class SetupForm : Form
     private readonly ProgressBar progress = new ProgressBar { Name = "WizardProgress", Dock = DockStyle.Fill };
     private readonly CheckBox launch = new CheckBox { Name = "LaunchAfterSetup", Text = "เปิด Server Bot Tracker", AutoSize = true, Checked = true };
     private readonly TableLayoutPanel content = new TableLayoutPanel();
-    private readonly Panel location = new Panel { Dock = DockStyle.Fill };
+    private readonly Panel location = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
+    private readonly TextBox destination = new TextBox { Name = "InstallLocation", Dock = DockStyle.Fill };
+    private readonly Button browse = new Button { Name = "BrowseInstallLocation", Text = "เรียกดู...", Dock = DockStyle.Fill };
     private WizardPage page;
 
-    public SetupForm(string target, Action install) : this(target, install, false) { }
+    public SetupForm(string target, Action<string> install) : this(target, install, false) { }
 
-    public SetupForm(string target, Action performOperation, bool uninstall)
+    public SetupForm(string target, Action<string> performOperation, bool uninstall)
     {
         targetDirectory = target;
         operation = performOperation;
@@ -46,7 +48,9 @@ internal sealed class SetupForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         BuildLayout();
         primary.Click += RunPrimaryAction;
-        back.Click += delegate { ShowPage(WizardPage.Welcome); };
+        back.Click += GoBack;
+        browse.Click += BrowseDirectory;
+        destination.TextChanged += delegate { if (page == WizardPage.Destination) status.Text = String.Empty; };
         cancel.Click += delegate { Close(); };
         FormClosing += PreventCloseDuringOperation;
         Shown += delegate { primary.Focus(); };
@@ -82,8 +86,16 @@ internal sealed class SetupForm : Form
         title.Margin = Padding.Empty;
         detail.Margin = Padding.Empty;
         status.Margin = new Padding(0, 8, 0, 0);
-        location.Controls.Add(new TextBox { Name = "InstallLocation", Text = targetDirectory, ReadOnly = true, Multiline = true, Dock = DockStyle.Fill, BackColor = Color.White, TabStop = false });
-        location.Controls.Add(new Label { Text = "ตำแหน่งโปรแกรม", Dock = DockStyle.Top, Height = 23 });
+        var folderRow = new TableLayoutPanel { Dock = DockStyle.Top, Height = 32, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
+        folderRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        folderRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 82));
+        destination.Text = targetDirectory;
+        destination.Margin = new Padding(0, 4, 6, 0);
+        browse.Margin = Padding.Empty;
+        folderRow.Controls.Add(destination, 0, 0);
+        folderRow.Controls.Add(browse, 1, 0);
+        location.Controls.Add(folderRow);
+        location.Controls.Add(new Label { Text = "โฟลเดอร์ติดตั้งโปรแกรม", Dock = DockStyle.Top, Height = 23 });
         content.Controls.Add(title, 0, 0);
         content.Controls.Add(detail, 0, 1);
         content.Controls.Add(location, 0, 2);
@@ -110,17 +122,27 @@ internal sealed class SetupForm : Form
         bool working = page == WizardPage.Working;
         bool complete = page == WizardPage.Complete;
         bool ready = page == WizardPage.Ready;
+        bool selecting = page == WizardPage.Destination;
         bool failed = page == WizardPage.Failed;
         primary.Enabled = !working;
         cancel.Enabled = !working;
         cancel.Visible = !complete;
         back.Visible = !complete && !working;
-        back.Enabled = ready || failed;
-        location.Visible = ready;
-        status.Visible = working || complete || failed;
+        back.Enabled = selecting || ready || failed;
+        location.Visible = selecting || ready;
+        destination.ReadOnly = !selecting;
+        destination.Multiline = !selecting;
+        destination.ScrollBars = selecting ? ScrollBars.None : ScrollBars.Vertical;
+        destination.BackColor = Color.White;
+        destination.TabStop = selecting;
+        browse.Visible = selecting;
+        browse.Parent.Height = selecting ? 32 : 78;
+        ((TableLayoutPanel)browse.Parent).ColumnStyles[1].Width = selecting ? 82 : 0;
+        status.Visible = selecting || working || complete || failed;
+        if (selecting) status.Text = String.Empty;
         progress.Visible = working || complete;
         launch.Visible = complete && !uninstalling;
-        content.RowStyles[2].Height = ready ? 76 : 0;
+        content.RowStyles[2].Height = selecting ? 76 : (ready ? 106 : 0);
         content.RowStyles[3].Height = status.Visible ? 70 : 0;
         content.RowStyles[4].Height = progress.Visible ? 24 : 0;
         content.RowStyles[5].Height = launch.Visible ? 32 : 0;
@@ -131,6 +153,11 @@ internal sealed class SetupForm : Form
             detail.Text = uninstalling
                 ? "ตัวช่วยนี้จะนำ Server Bot Tracker ออกจากเครื่องของคุณ\n\nกรุณาปิดโปรแกรมก่อนดำเนินการ\nรายการเซิร์ฟเวอร์และการตั้งค่าส่วนตัวจะยังคงอยู่\n\nคลิก ถัดไป เพื่อดำเนินการต่อ"
                 : "ตัวช่วยนี้จะแนะนำขั้นตอนการติดตั้ง Server Bot Tracker\n\nกรุณาปิดโปรแกรมก่อนเริ่มติดตั้ง เพื่อให้สามารถอัปเดตไฟล์โปรแกรมได้ครบถ้วน\n\nคลิก ถัดไป เพื่อดำเนินการต่อ";
+        }
+        else if (selecting)
+        {
+            title.Text = "เลือกโฟลเดอร์ติดตั้ง";
+            detail.Text = "พิมพ์ตำแหน่งที่ต้องการ หรือคลิก เรียกดู...\n\nเลือกโฟลเดอร์ที่บัญชี Windows ของคุณเขียนไฟล์ได้\nโปรแกรมจะติดตั้งลงในโฟลเดอร์ที่เลือกโดยตรง\n\nคลิก ถัดไป เพื่อยืนยันตำแหน่ง";
         }
         else if (ready)
         {
@@ -162,7 +189,20 @@ internal sealed class SetupForm : Form
     private async void RunPrimaryAction(object sender, EventArgs args)
     {
         if (page == WizardPage.Working) return;
-        if (page == WizardPage.Welcome) { ShowPage(WizardPage.Ready); return; }
+        if (page == WizardPage.Welcome) { ShowPage(uninstalling ? WizardPage.Ready : WizardPage.Destination); return; }
+        if (page == WizardPage.Destination)
+        {
+            try
+            {
+                string selected = InstallLocation.Normalize(destination.Text);
+                InstallLocation.ValidateProductFiles(selected);
+                targetDirectory = selected;
+                destination.Text = selected;
+                ShowPage(WizardPage.Ready);
+            }
+            catch (Exception exception) { status.Text = exception.Message; destination.Focus(); }
+            return;
+        }
         if (page == WizardPage.Complete)
         {
             try
@@ -177,13 +217,35 @@ internal sealed class SetupForm : Form
         ShowPage(WizardPage.Working);
         try
         {
-            await RunOperationAsync(operation);
+            string selectedDirectory = targetDirectory;
+            await RunOperationAsync(delegate { operation(selectedDirectory); });
             ShowPage(WizardPage.Complete);
         }
         catch (Exception exception)
         {
             ShowPage(WizardPage.Failed);
             status.Text = exception.Message;
+        }
+    }
+
+    private void GoBack(object sender, EventArgs args)
+    {
+        if (page == WizardPage.Ready || page == WizardPage.Failed)
+            ShowPage(uninstalling ? WizardPage.Welcome : WizardPage.Destination);
+        else if (page == WizardPage.Destination)
+            ShowPage(WizardPage.Welcome);
+    }
+
+    private void BrowseDirectory(object sender, EventArgs args)
+    {
+        using (var picker = new FolderBrowserDialog { Description = "เลือกโฟลเดอร์ติดตั้ง Server Bot Tracker", ShowNewFolderButton = true })
+        {
+            if (Directory.Exists(destination.Text)) picker.SelectedPath = destination.Text;
+            if (picker.ShowDialog(this) == DialogResult.OK)
+            {
+                destination.Text = picker.SelectedPath;
+                status.Text = String.Empty;
+            }
         }
     }
 

@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Notes = 'Classic Thai setup and uninstall wizards with Control Panel integration.')
+param([string]$Notes = 'Choose and remember the installation folder with Browse; uninstall and updates follow the selected location.')
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -31,6 +31,7 @@ $arguments = @(
     '/reference:System.IO.Compression.dll', '/reference:System.IO.Compression.FileSystem.dll',
     (Join-Path $PSScriptRoot 'setup\Setup.cs'),
     (Join-Path $PSScriptRoot 'setup\SetupForm.cs'),
+    (Join-Path $PSScriptRoot 'setup\InstallLocation.cs'),
     (Join-Path $projectRoot 'src\AssemblyInfo.cs'),
     (Join-Path $projectRoot 'src\Branding.cs'),
     (Join-Path $projectRoot 'src\Theme.cs')

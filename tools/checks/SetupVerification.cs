@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Windows.Forms;
@@ -21,6 +22,7 @@ internal static class SetupVerification
         assert(setupAssembly.GetName().Version == typeof(MainForm).Assembly.GetName().Version, "Installer and application versions match");
         VerifyInstallFlow(setupAssembly, root, assert);
         VerifyRetry(setupAssembly, root, assert);
+        VerifyCustomInstallation(setupAssembly, root, assert);
         VerifyUninstall(setupAssembly, root, assert);
         assert(UpdateInstaller.MatchesInstallLocation(root, root.ToUpperInvariant() + Path.DirectorySeparatorChar), "Control Panel version matching accepts equivalent paths with a trailing separator");
         assert(!UpdateInstaller.MatchesInstallLocation(null, root) && !UpdateInstaller.MatchesInstallLocation(root, root + "-other"), "Control Panel version matching rejects absent and different installations");
@@ -73,7 +75,7 @@ internal static class SetupVerification
         return image;
     }
 
-    private static Form CreateForm(Assembly setupAssembly, string root, Action install, bool uninstall = false)
+    private static Form CreateForm(Assembly setupAssembly, string root, Action<string> install, bool uninstall = false)
     {
         Type formType = setupAssembly.GetType("SetupForm", true);
         return (Form)Activator.CreateInstance(formType, new object[] { Path.Combine(root, "setup-ui-fixture"), install, uninstall });
@@ -84,9 +86,12 @@ internal static class SetupVerification
         Exception failure = null;
         ApartmentState apartment = ApartmentState.Unknown;
         int operations = 0;
+        string receivedTarget = null;
+        string selectedTarget = Path.Combine(root, "โฟลเดอร์ที่เลือก", "Server Bot Tracker");
         using (var release = new ManualResetEventSlim(false))
-        using (Form form = CreateForm(setupAssembly, root, delegate
+        using (Form form = CreateForm(setupAssembly, root, delegate(string selected)
         {
+            receivedTarget = selected;
             apartment = Thread.CurrentThread.GetApartmentState();
             Interlocked.Increment(ref operations);
             if (!release.Wait(10000)) throw new TimeoutException("Setup fixture was not released");
@@ -101,9 +106,21 @@ internal static class SetupVerification
                     Capture(form, root, "setup-welcome.png");
                     action.PerformClick();
                     Button back = (Button)form.Controls.Find("WizardBack", true).Single();
-                    assert(operations == 0 && back.Enabled && action.Text == "ติดตั้ง", "Next advances to confirmation without installing");
+                    var destination = (TextBox)form.Controls.Find("InstallLocation", true).Single();
+                    var browse = (Button)form.Controls.Find("BrowseInstallLocation", true).Single();
+                    assert(operations == 0 && back.Enabled && !destination.ReadOnly && browse.Visible && browse.Enabled, "Next opens the editable installation folder page with Browse before any writes");
+                    destination.Text = "relative-folder";
+                    action.PerformClick();
+                    assert(operations == 0 && !destination.ReadOnly && form.Controls.Find("WizardStatus", true).Single().Text.Length > 0, "An invalid relative destination stays on the folder page with a visible error");
+                    destination.Text = selectedTarget;
+                    Capture(form, root, "setup-destination.png");
+                    action.PerformClick();
+                    assert(operations == 0 && destination.ReadOnly && !browse.Visible && destination.Text == selectedTarget && action.Text == "ติดตั้ง", "Confirmation displays the selected Thai path without creating the directory");
                     back.PerformClick();
-                    assert(operations == 0 && !back.Enabled && action.Text == "ถัดไป >", "Back returns to welcome without side effects");
+                    assert(!destination.ReadOnly && destination.Text == selectedTarget && browse.Visible, "Back from confirmation preserves the chosen folder for editing");
+                    back.PerformClick();
+                    assert(operations == 0 && !back.Enabled && action.Text == "ถัดไป >", "Back from folder selection returns to welcome without side effects");
+                    action.PerformClick();
                     action.PerformClick();
                     Capture(form, root, "setup-ready.png");
                     action.PerformClick();
@@ -113,13 +130,13 @@ internal static class SetupVerification
                     Capture(form, root, "setup-installing.png");
                     release.Set();
                     WaitUntilEnabled(action);
-                    assert(apartment == ApartmentState.STA && form.Controls.Find("WizardTitle", true).Single().Text == "ติดตั้งเสร็จสมบูรณ์", "Installer finishes on the UI thread after its dedicated STA worker completes");
+                    assert(apartment == ApartmentState.STA && receivedTarget == selectedTarget && form.Controls.Find("WizardTitle", true).Single().Text == "ติดตั้งเสร็จสมบูรณ์", "Installer passes the exact selected folder to its dedicated STA worker and finishes on the UI thread");
                     var launch = (CheckBox)form.Controls.Find("LaunchAfterSetup", true).Single();
                     assert(launch.Visible && launch.Checked && action.Text == "เสร็จสิ้น", "Completion screen offers optional app launch without another confirmation dialog");
                     Capture(form, root, "setup-complete.png");
                     launch.Checked = false;
                     action.PerformClick();
-                    assert(form.IsDisposed && !Directory.Exists(Path.Combine(root, "setup-ui-fixture")), "Finish without launch closes safely and the isolated UI fixture writes no installation files");
+                    assert(form.IsDisposed && !Directory.Exists(selectedTarget), "Finish without launch closes safely and the isolated UI fixture writes no installation files");
                 }
                 catch (Exception exception)
                 {
@@ -149,6 +166,7 @@ internal static class SetupVerification
                 {
                     action.PerformClick();
                     action.PerformClick();
+                    action.PerformClick();
                     WaitUntilEnabled(action);
                     assert(action.Text == "ลองอีกครั้ง" && form.Controls.Find("WizardStatus", true).Single().Text.Contains("ทดสอบข้อผิดพลาด"), "An installation failure stays visible and permits retry without claiming success");
                     action.PerformClick();
@@ -164,6 +182,69 @@ internal static class SetupVerification
         if (failure != null) throw failure;
     }
 
+    private static void VerifyCustomInstallation(Assembly assembly, string root, Action<bool, string> assert)
+    {
+        Type setup = assembly.GetType("Setup", true);
+        Type locations = assembly.GetType("InstallLocation", true);
+        MethodInfo normalize = locations.GetMethod("Normalize");
+        MethodInfo remembered = locations.GetMethod("ReadRemembered");
+        string target = Path.Combine(root, "ติดตั้งภาษาไทย", "Server Bot Tracker");
+        string second = Path.Combine(root, "ตำแหน่งใหม่", "Server Bot Tracker");
+        string shortcut = Path.Combine(root, "custom-install.lnk");
+        string registry = @"Software\Kuma\ServerBotTrackerDevelopment\" + Path.GetFileName(root) + "-custom";
+        MethodInfo install = setup.GetMethod("InstallAt", BindingFlags.NonPublic | BindingFlags.Static);
+        MethodInfo remove = setup.GetMethod("RemoveInstallation", BindingFlags.NonPublic | BindingFlags.Static);
+        try
+        {
+            bool rejectsInvalid = true;
+            foreach (string path in new[] { "", "relative-folder", @"C:relative", @"\relative", Path.GetPathRoot(target), @"\\server\share", @"C:\bad|folder" })
+            {
+                try { normalize.Invoke(null, new object[] { path }); rejectsInvalid = false; }
+                catch (TargetInvocationException exception) { if (!(exception.InnerException is IOException)) throw; }
+            }
+            assert(rejectsInvalid, "Destination validation rejects blank, relative, drive/share roots and invalid paths");
+            assert((string)normalize.Invoke(null, new object[] { @"\\server\share\Server Bot Tracker\" }) == @"\\server\share\Server Bot Tracker", "An absolute UNC subfolder is retained without probing or writing to the share");
+            string collision = Path.Combine(root, "unrelated-install");
+            Directory.CreateDirectory(collision);
+            string unrelated = Path.Combine(collision, "Uninstall.exe");
+            File.WriteAllText(unrelated, "Unrelated program");
+            bool rejected = false;
+            try { install.Invoke(null, new object[] { collision, shortcut, registry }); }
+            catch (TargetInvocationException exception) { rejected = exception.InnerException is IOException; }
+            assert(rejected && File.ReadAllText(unrelated) == "Unrelated program" && !File.Exists(Path.Combine(collision, "ServerBotTracker.exe")) && !File.Exists(shortcut), "Selecting another program's files fails before replacement or registration");
+            install.Invoke(null, new object[] { target + Path.DirectorySeparatorChar, shortcut, registry });
+            using (Stream expected = File.OpenRead(Path.Combine(root, "ServerBotTracker.exe")))
+            using (Stream actual = File.OpenRead(Path.Combine(target, "ServerBotTracker.exe")))
+                assert(Hash(expected) == Hash(actual) && File.Exists(Path.Combine(target, "ServerBotTracker.exe.config")) && File.Exists(Path.Combine(target, "Uninstall.exe")), "The real installer extracts its payload into the exact selected Thai folder with spaces");
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registry))
+                assert((string)key.GetValue("InstallLocation") == target && (string)key.GetValue("UninstallString") == "\"" + Path.Combine(target, "Uninstall.exe") + "\" --uninstall" && (string)key.GetValue("DisplayIcon") == Path.Combine(target, "ServerBotTracker.exe"), "Control Panel metadata uses the custom folder and correctly quotes its uninstall command");
+            assert((string)remembered.Invoke(null, new object[] { registry }) == target, "A later Setup run remembers the registered custom installation folder");
+            dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
+            dynamic link = shell.CreateShortcut(shortcut);
+            try
+            {
+                assert(String.Equals((string)link.TargetPath, Path.Combine(target, "ServerBotTracker.exe"), StringComparison.OrdinalIgnoreCase) && String.Equals((string)link.WorkingDirectory, target, StringComparison.OrdinalIgnoreCase), "The actual Start menu shortcut resolves to the selected executable and working folder");
+            }
+            finally { Marshal.FinalReleaseComObject(link); Marshal.FinalReleaseComObject(shell); }
+            string stage = Path.Combine(root, "custom-update-stage");
+            Directory.CreateDirectory(stage);
+            File.Copy(Path.Combine(root, "published-update.json"), Path.Combine(stage, "manifest.json"));
+            File.Copy(Path.Combine(root, "published-package.zip"), Path.Combine(stage, "package.zip"));
+            File.Copy(Path.Combine(root, "OldVersion.exe"), Path.Combine(target, "ServerBotTracker.exe"), true);
+            File.WriteAllText(Path.Combine(target, "servers.json"), "Preserve custom folder data");
+            UpdateInstaller.Apply(stage, target);
+            assert(FileVersionInfo.GetVersionInfo(Path.Combine(target, "ServerBotTracker.exe")).FileVersion == ReleaseChannel.CurrentVersion.ToString() && File.ReadAllText(Path.Combine(target, "servers.json")) == "Preserve custom folder data" && File.Exists(Path.Combine(target, "Uninstall.exe")), "Automatic update applies in the custom folder and preserves the uninstaller and unrelated data");
+            install.Invoke(null, new object[] { second, shortcut, registry });
+            remove.Invoke(null, new object[] { target, shortcut, registry });
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registry))
+                assert(key != null && (string)key.GetValue("InstallLocation") == second && File.Exists(shortcut) && File.Exists(Path.Combine(second, "ServerBotTracker.exe")), "An old copy's removal preserves the newer installation's registry entry and shortcut");
+            remove.Invoke(null, new object[] { second, shortcut, registry });
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registry))
+                assert(key == null && !File.Exists(shortcut) && !Directory.Exists(second) && File.ReadAllText(Path.Combine(target, "servers.json")) == "Preserve custom folder data", "Custom-folder uninstall removes its own files and registration while keeping unrelated data");
+        }
+        finally { Registry.CurrentUser.DeleteSubKeyTree(registry, false); }
+    }
+
     private static void VerifyUninstall(Assembly setupAssembly, string root, Action<bool, string> assert)
     {
         string target = Path.Combine(root, "uninstall-fixture");
@@ -177,11 +258,14 @@ internal static class SetupVerification
         File.WriteAllText(Path.Combine(target, "user-folder", "keep.txt"), "Unrelated content");
         File.WriteAllText(shortcut, "Fixture shortcut");
         using (RegistryKey key = Registry.CurrentUser.CreateSubKey(registry))
-            key.SetValue("DisplayName", "Isolated removal fixture");
-        MethodInfo remove = setupAssembly.GetType("Setup", true).GetMethod("RemoveInstallation", BindingFlags.NonPublic | BindingFlags.Static);
-        Action uninstall = delegate
         {
-            try { remove.Invoke(null, new object[] { target, shortcut, registry }); }
+            key.SetValue("DisplayName", "Isolated removal fixture");
+            key.SetValue("InstallLocation", target);
+        }
+        MethodInfo remove = setupAssembly.GetType("Setup", true).GetMethod("RemoveInstallation", BindingFlags.NonPublic | BindingFlags.Static);
+        Action<string> uninstall = delegate(string selected)
+        {
+            try { remove.Invoke(null, new object[] { selected, shortcut, registry }); }
             catch (TargetInvocationException exception) { throw exception.InnerException; }
         };
         bool rootRejected = false;

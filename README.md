@@ -51,11 +51,13 @@ Automatic downloads and local server alerts can be toggled in the Thai notificat
 
 Operator instructions: [Thai publishing guide](docs/RELEASES.th.md). A code commit by itself does not publish an update.
 
-## Branding and classic setup (1.4)
+## Branding and classic setup (1.5)
 
 The supplied robot icon is embedded in the application, setup and uninstall EXEs, and appears in the dashboard, window/taskbar icons, tray and Start menu shortcut. Dialogs use the same product icon. The existing light/blue colors and ping-only layout remain.
 
-Setup follows a classic wizard layout with blue robot artwork, white pages and standard Next/Back/Cancel buttons: welcome, installation confirmation, progress and completion. Failure stays visible and can be retried. A matching uninstall wizard opens from **Control Panel > Programs and Features > Server Bot Tracker > Uninstall/Change**. It removes the program, shortcut and registration while retaining saved server lists and unrelated files.
+Setup follows a classic wizard layout with blue robot artwork, white pages and standard Next/Back/Cancel buttons: welcome, **choose installation folder**, confirmation, progress and completion. Type an absolute folder path or click **เรียกดู... (Browse)**. Setup uses that exact folder, remembers it for the next run, and creates its shortcut and Control Panel entry there. Choose a folder your Windows account can write to; Setup does not elevate automatically. Failure stays visible and can be retried or taken Back to change the destination. A matching uninstall wizard opens from **Control Panel > Programs and Features > Server Bot Tracker > Uninstall/Change**. It removes the program, shortcut and registration while retaining saved server lists and unrelated files.
+
+The default for a first install remains `%LOCALAPPDATA%\Programs\ServerBotTracker`. Automatic updates follow the running EXE's location. Choosing another folder creates a new copy and redirects the single Start menu/Control Panel entry; it does not delete the previous folder. Version 1.5 uninstallers preserve a registration belonging to a different folder. Older uninstallers retain their original behavior; use the current Control Panel entry after installing the new version.
 
 Install or removal runs on a dedicated STA thread so the window stays responsive; closing is blocked during file changes. The installer registers version, publisher, icon, estimated size and uninstall command for the current Windows user. Run the new Setup once to install the new uninstall wizard: portable ZIP updates continue replacing only the application and runtime config, and do not replace an older uninstaller.
 

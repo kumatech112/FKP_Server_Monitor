@@ -10,7 +10,7 @@
 
 ## สร้างรุ่นโปรแกรม
 
-1. ปรับ `AssemblyVersion` และ `AssemblyFileVersion` ใน `src/AssemblyInfo.cs` ให้สูงกว่ารุ่นที่เผยแพร่แล้ว เช่น `1.5.0.0`
+1. ปรับ `AssemblyVersion` และ `AssemblyFileVersion` ใน `src/AssemblyInfo.cs` ให้สูงกว่ารุ่นที่เผยแพร่แล้ว เช่น `1.6.0.0`
 2. รันคำสั่งต่อไปนี้จากโฟลเดอร์โครงการ:
 
 ```powershell
@@ -20,7 +20,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify.ps1
 ```
 
 3. ตรวจผลทดสอบและเปิดดูรายละเอียดรุ่นที่ `release\publish\v<รุ่น>`
-4. ใน public repository สร้าง Release ด้วย tag ที่ตรงกับ `Tag` ใน `update.json` เช่น `v1.5.0`
+4. ใน public repository สร้าง Release ด้วย tag ที่ตรงกับ `Tag` ใน `update.json` เช่น `v1.6.0`
 5. แนบเฉพาะสามไฟล์จากโฟลเดอร์รุ่น:
 
    - `ServerBotTracker-Setup.exe`
@@ -53,7 +53,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Prepare-Announce
 
 ## GitHub Actions
 
-workflow ใน `.github/workflows/release.yml` จะ build, package และ verify ก่อนเผยแพร่ เมื่อ push tag รุ่น เช่น `v1.5.0` จะตรวจว่าตรงกับรุ่นโปรแกรมแล้วสร้าง stable release และตั้งเป็น Latest ส่วนการกด Run workflow เองจะสร้าง **Draft release** ซึ่งต้อง Publish จึงจะส่งอัปเดต
+workflow ใน `.github/workflows/release.yml` จะ build, package และ verify ก่อนเผยแพร่ เมื่อ push tag รุ่น เช่น `v1.6.0` จะตรวจว่าตรงกับรุ่นโปรแกรมแล้วสร้าง stable release และตั้งเป็น Latest ส่วนการกด Run workflow เองจะสร้าง **Draft release** ซึ่งต้อง Publish จึงจะส่งอัปเดต
 
 การ push เข้า main จะ build และทดสอบโดยไม่สร้างรุ่นโปรแกรมใหม่ พร้อมตรวจว่ามีช่องทางประกาศแล้ว ขั้นตอนประกาศใช้ PowerShell 7 เพื่อจัดการกรณียังไม่มี release ได้ถูกต้อง
 
@@ -70,7 +70,7 @@ workflow ใน `.github/workflows/release.yml` จะ build, package และ 
 ```powershell
 .\tools\Sign.ps1 -CertificateThumbprint '<thumbprint>' -Files '.\release\ServerBotTracker.exe'
 .\tools\Package.ps1 -Notes 'รายละเอียดรุ่น'
-.\tools\Sign.ps1 -CertificateThumbprint '<thumbprint>' -Files '.\release\publish\v1.4.0\ServerBotTracker-Setup.exe'
+.\tools\Sign.ps1 -CertificateThumbprint '<thumbprint>' -Files '.\release\publish\v1.5.0\ServerBotTracker-Setup.exe'
 ```
 
 ให้แจกตัวติดตั้งจากโฟลเดอร์รุ่นที่เซ็นแล้ว และทดสอบแพ็กเกจใหม่เสมอ ไม่มีการสร้างหรือซื้อใบรับรองแทนเจ้าของในงานนี้
