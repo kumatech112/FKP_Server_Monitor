@@ -17,11 +17,16 @@ try {
         Copy-Item -LiteralPath $source.FullName -Destination $buildRoot
     }
     Copy-Item -LiteralPath (Join-Path $projectRoot 'src\app.manifest') -Destination $buildRoot
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\branding\server-tracker.ico') -Destination $buildRoot
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\branding\server-tracker.png') -Destination $buildRoot
     $executablePath = Join-Path $buildRoot 'ServerBotTracker.exe'
     $arguments = @(
         '/nologo', '/target:winexe', '/platform:anycpu', '/optimize+', '/warn:4', '/warnaserror+',
         '/utf8output', '/codepage:65001', ('/out:' + $executablePath),
         ('/win32manifest:' + (Join-Path $buildRoot 'app.manifest')),
+        ('/win32icon:' + (Join-Path $buildRoot 'server-tracker.ico')),
+        ('/resource:' + (Join-Path $buildRoot 'server-tracker.ico') + ',ServerBotTracker.Branding.Icon'),
+        ('/resource:' + (Join-Path $buildRoot 'server-tracker.png') + ',ServerBotTracker.Branding.Logo'),
         '/reference:System.dll', '/reference:System.Core.dll', '/reference:System.Drawing.dll',
         '/reference:System.Windows.Forms.dll', '/reference:System.Runtime.Serialization.dll',
         '/reference:System.Net.Http.dll', '/reference:System.IO.Compression.dll', '/reference:System.IO.Compression.FileSystem.dll'

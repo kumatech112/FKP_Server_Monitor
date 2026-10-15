@@ -22,6 +22,7 @@ namespace ServerBotTracker
         private bool restartAfterUpdate;
         private string releaseStatus = "ยังไม่ได้ตรวจอัปเดต";
         private NotifyIcon tray;
+        private Icon trayIcon;
 
         private void InitializeNotifications(bool onlineServices)
         {
@@ -32,7 +33,8 @@ namespace ServerBotTracker
             updateButton.Click += ShowUpdateDetails;
             RefreshNotificationCount();
             releaseChannel = new ReleaseChannel();
-            tray = new NotifyIcon { Icon = SystemIcons.Information, Text = "Server Bot Tracker", Visible = onlineServices };
+            trayIcon = Branding.CreateIcon();
+            tray = new NotifyIcon { Icon = trayIcon, Text = "Server Bot Tracker", Visible = onlineServices };
             releaseTimer.Tick += async delegate { await CheckReleaseAsync(false); };
             if (onlineServices)
             {
@@ -48,6 +50,7 @@ namespace ServerBotTracker
                 releaseCancellation.Cancel();
                 releaseTimer.Dispose();
                 tray.Dispose();
+                trayIcon.Dispose();
                 releaseChannel.Dispose();
                 releaseCancellation.Dispose();
             };

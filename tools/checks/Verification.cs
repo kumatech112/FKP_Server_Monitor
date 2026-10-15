@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using ServerBotTracker;
 
+[assembly: System.Runtime.Versioning.TargetFramework(".NETFramework,Version=v4.8")]
+
 internal static class Verification
 {
     private static readonly List<string> evidence = new List<string>();
@@ -30,6 +32,7 @@ internal static class Verification
             VerifyLegacyConfiguration();
             VerifyDeadline();
             UpdatesVerification.Run(root, Assert);
+            SetupVerification.Run(root, Assert);
             VerifyNetworkAndGui();
             VerifyLaunch();
             File.WriteAllLines(Path.Combine(root, "verification.txt"), evidence, new UTF8Encoding(true));
@@ -156,6 +159,8 @@ internal static class Verification
                     Assert(grid.Rows.Count == 3 && (string)grid.Rows[0].Cells["Status"].Value == "ผ่าน" && (string)grid.Rows[1].Cells["Status"].Value == "ผ่าน" && (string)grid.Rows[2].Cells["Status"].Value == "ไม่ผ่าน", "Built dashboard renders green pass and red fail for ping results");
                     Assert(grid.Columns.Count == 5 && !grid.Columns.Contains("Port") && !grid.Columns.Contains("Mode") && !grid.Columns.Contains("Tcp") && !AllControls(form).OfType<Button>().Any(button => button.Text.Contains("CSV")), "Dashboard has no port, check-method, TCP or export controls");
                     Assert(form.Text.Contains("ตรวจสอบเซิร์ฟเวอร์"), "Thai desktop window title");
+                    var tray = (NotifyIcon)typeof(MainForm).GetField("tray", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(form);
+                    Assert(form.Icon != null && tray.Icon != null && form.Controls.Find("ProductLogo", true).Length == 1 && form.BackColor == Color.FromArgb(243, 246, 251), "Dashboard and tray use product branding while preserving the existing colors");
                     using (var image = new Bitmap(form.Width, form.Height))
                     {
                         form.DrawToBitmap(image, new Rectangle(0, 0, image.Width, image.Height));

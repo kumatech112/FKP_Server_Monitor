@@ -1,11 +1,9 @@
 using System;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Threading;
 using System.Windows.Forms;
@@ -44,27 +42,8 @@ internal static class Setup
             }
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            using (var form = new Form { Text = "ติดตั้ง Server Bot Tracker", ClientSize = new Size(590, 310), StartPosition = FormStartPosition.CenterScreen, Font = new Font("Tahoma", 10), FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, BackColor = Color.FromArgb(243, 246, 251) })
-            {
-                var title = new Label { Text = Product, Font = new Font("Tahoma", 22, FontStyle.Bold), AutoSize = true, Location = new Point(28, 30) };
-                var description = new Label { Text = "Dashboard ตรวจสอบเซิร์ฟเวอร์ด้วย Ping\nพร้อมอัปเดตอัตโนมัติและการแจ้งเตือน\n\nติดตั้งสำหรับผู้ใช้ Windows คนปัจจุบันที่:\n" + Target, AutoSize = true, Location = new Point(30, 90) };
-                var install = new Button { Text = "ติดตั้ง", Size = new Size(125, 40), Location = new Point(425, 240), BackColor = Color.FromArgb(37, 99, 235), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-                var cancel = new Button { Text = "ยกเลิก", Size = new Size(110, 40), Location = new Point(302, 240), DialogResult = DialogResult.Cancel };
-                install.Click += delegate
-                {
-                    try
-                    {
-                        Install();
-                        if (MessageBox.Show(form, "ติดตั้งสำเร็จ ต้องการเปิดโปรแกรมหรือไม่?", Product, MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
-                            Process.Start(Path.Combine(Target, "ServerBotTracker.exe"));
-                        form.Close();
-                    }
-                    catch (Exception exception) { MessageBox.Show(form, exception.Message, "ติดตั้งไม่ได้", MessageBoxButtons.OK, MessageBoxIcon.Error); }
-                };
-                form.Controls.AddRange(new Control[] { title, description, install, cancel });
-                form.CancelButton = cancel;
+            using (var form = new SetupForm(Target, Install))
                 Application.Run(form);
-            }
             return 0;
         }
         catch (Exception exception)
@@ -121,6 +100,7 @@ internal static class Setup
                 dynamic shell = Activator.CreateInstance(shellType);
                 dynamic shortcut = shell.CreateShortcut(Shortcut);
                 shortcut.TargetPath = Path.Combine(Target, "ServerBotTracker.exe");
+                shortcut.IconLocation = Path.Combine(Target, "ServerBotTracker.exe") + ",0";
                 shortcut.WorkingDirectory = Target;
                 shortcut.Description = Product;
                 shortcut.Save();

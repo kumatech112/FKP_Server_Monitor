@@ -38,6 +38,7 @@ namespace ServerBotTracker
 
         public static void ApplyDialog(Form form, string title, Size size)
         {
+            Branding.ApplyTo(form);
             form.Text = title;
             form.ClientSize = size;
             form.Font = new Font("Tahoma", 10F);

@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Notes = 'Automatic updates and in-app notifications.')
+param([string]$Notes = 'Robot branding and guided Thai setup, preserving the existing colors.')
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -17,7 +17,24 @@ $manifest = [ordered]@{ Schema = 1; Version = $version; Tag = $tag; Sha256 = (Ge
 $manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $outputRoot 'update.json') -Encoding UTF8
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $setup = Join-Path $outputRoot 'ServerBotTracker-Setup.exe'
-$arguments = @('/nologo', '/target:winexe', '/platform:anycpu', '/optimize+', '/warnaserror+', '/utf8output', '/codepage:65001', ('/out:' + $setup), ('/win32manifest:' + (Join-Path $projectRoot 'src\app.manifest')), ('/resource:' + $package + ',payload.zip'), '/reference:System.dll', '/reference:System.Core.dll', '/reference:System.Drawing.dll', '/reference:System.Windows.Forms.dll', '/reference:Microsoft.CSharp.dll', '/reference:System.IO.Compression.dll', '/reference:System.IO.Compression.FileSystem.dll', (Join-Path $PSScriptRoot 'setup\Setup.cs'), (Join-Path $projectRoot 'src\AssemblyInfo.cs'))
+$brandingRoot = Join-Path $projectRoot 'assets\branding'
+$arguments = @(
+    '/nologo', '/target:winexe', '/platform:anycpu', '/optimize+', '/warn:4', '/warnaserror+',
+    '/utf8output', '/codepage:65001', ('/out:' + $setup),
+    ('/win32manifest:' + (Join-Path $projectRoot 'src\app.manifest')),
+    ('/win32icon:' + (Join-Path $brandingRoot 'server-tracker.ico')),
+    ('/resource:' + $package + ',payload.zip'),
+    ('/resource:' + (Join-Path $brandingRoot 'server-tracker.ico') + ',ServerBotTracker.Branding.Icon'),
+    ('/resource:' + (Join-Path $brandingRoot 'server-tracker.png') + ',ServerBotTracker.Branding.Logo'),
+    '/reference:System.dll', '/reference:System.Core.dll', '/reference:System.Drawing.dll',
+    '/reference:System.Windows.Forms.dll', '/reference:Microsoft.CSharp.dll',
+    '/reference:System.IO.Compression.dll', '/reference:System.IO.Compression.FileSystem.dll',
+    (Join-Path $PSScriptRoot 'setup\Setup.cs'),
+    (Join-Path $PSScriptRoot 'setup\SetupForm.cs'),
+    (Join-Path $projectRoot 'src\AssemblyInfo.cs'),
+    (Join-Path $projectRoot 'src\Branding.cs'),
+    (Join-Path $projectRoot 'src\Theme.cs')
+)
 & $compiler @arguments
 if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }
 Copy-Item -LiteralPath $setup -Destination (Join-Path $releaseRoot 'ServerBotTracker-Setup.exe') -Force

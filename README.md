@@ -21,6 +21,7 @@ One ICMP echo request is sent per server per cycle, using the same protocol as o
 ```text
 Server_Bot_Tracker/
   src/                 Complete application source
+  assets/              Original product icons embedded during build
   docs/                Thai guide, data flow and verification
   tools/               Build and verification scripts
     checks/            Maintained verification source
@@ -49,6 +50,12 @@ The public source and distribution repository is `kumatech112/Server_Bot_Tracker
 Automatic downloads and local server alerts can be toggled in the Thai notification/update dialogs. Windows may suppress tray popups; inbox messages remain available. Version 1.1 users must install 1.2 once to gain the updater. The current installer is unsigned; Windows publisher signing is a separate owner-supplied certificate step.
 
 Operator instructions: [Thai publishing guide](docs/RELEASES.th.md). A code commit by itself does not publish an update.
+
+## Branding and guided setup (1.3)
+
+The supplied robot icon is embedded in the application, setup and uninstall EXEs, and appears in the dashboard, window/taskbar icons, tray and Start menu shortcut. Dialogs use the same product icon. The existing light/blue colors and ping-only layout remain.
+
+Setup now presents a branded welcome screen, installation progress, a completion screen with optional launch, and a visible retry state on failure. Installation runs on a dedicated STA thread so the window stays responsive; closing is blocked while files are being installed. This uses the existing per-user installation engine and needs no additional installer framework.
 
 ## Saved server lists
 

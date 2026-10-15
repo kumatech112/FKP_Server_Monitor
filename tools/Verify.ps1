@@ -10,6 +10,9 @@ $verificationRoot = Join-Path $env:LOCALAPPDATA ('Kuma\ServerBotTrackerDevelopme
 New-Item -ItemType Directory -Path $verificationRoot -Force | Out-Null
 Copy-Item -LiteralPath $executablePath -Destination $verificationRoot
 Copy-Item -LiteralPath (Join-Path $projectRoot 'release\ServerBotTracker.exe.config') -Destination $verificationRoot
+Copy-Item -LiteralPath (Join-Path $projectRoot 'release\ServerBotTracker-Setup.exe') -Destination $verificationRoot
+Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\branding\server-tracker.ico') -Destination (Join-Path $verificationRoot 'branding.ico')
+Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\branding\server-tracker.png') -Destination (Join-Path $verificationRoot 'branding.png')
 $releaseVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($executablePath).FileVersion
 $versionValue = [version]$releaseVersion
 $versionTag = if ($versionValue.Revision -gt 0) { $versionValue.ToString(4) } else { $versionValue.ToString(3) }
@@ -19,6 +22,7 @@ if (Test-Path -LiteralPath (Join-Path $publishedRoot 'update.json')) {
     Copy-Item -LiteralPath (Join-Path $publishedRoot 'ServerBotTracker-portable.zip') -Destination (Join-Path $verificationRoot 'published-package.zip')
 }
 $runnerPath = Join-Path $verificationRoot 'Verification.exe'
+Copy-Item -LiteralPath (Join-Path $projectRoot 'release\ServerBotTracker.exe.config') -Destination ($runnerPath + '.config')
 $arguments = @(
     '/nologo', '/target:exe', '/platform:anycpu', '/warn:4', '/warnaserror+', '/utf8output', '/codepage:65001',
     ('/out:' + $runnerPath), ('/reference:' + (Join-Path $verificationRoot 'ServerBotTracker.exe')),
@@ -26,6 +30,7 @@ $arguments = @(
     '/reference:System.Windows.Forms.dll', '/reference:System.Runtime.Serialization.dll',
     '/reference:System.Net.Http.dll', '/reference:System.IO.Compression.dll', '/reference:System.IO.Compression.FileSystem.dll',
     (Join-Path $PSScriptRoot 'checks\Verification.cs'),
+    (Join-Path $PSScriptRoot 'checks\SetupVerification.cs'),
     (Join-Path $PSScriptRoot 'checks\UpdatesVerification.cs')
 )
 $fixtureSource = Join-Path $verificationRoot 'OldVersion.cs'
@@ -44,5 +49,9 @@ if ($LASTEXITCODE -ne 0) { throw "Verification failed. Evidence: $verificationRo
 $sourceHash = (Get-FileHash -LiteralPath $executablePath -Algorithm SHA256).Hash
 $verifiedHash = (Get-FileHash -LiteralPath (Join-Path $verificationRoot 'ServerBotTracker.exe') -Algorithm SHA256).Hash
 if ($sourceHash -ne $verifiedHash) { throw 'The tested executable differs from the release.' }
+$setupHash = (Get-FileHash -LiteralPath (Join-Path $projectRoot 'release\ServerBotTracker-Setup.exe') -Algorithm SHA256).Hash
+$verifiedSetupHash = (Get-FileHash -LiteralPath (Join-Path $verificationRoot 'ServerBotTracker-Setup.exe') -Algorithm SHA256).Hash
+if ($setupHash -ne $verifiedSetupHash) { throw 'The tested installer differs from the release.' }
 Write-Output ('Verified release SHA256: ' + $sourceHash)
+Write-Output ('Verified installer SHA256: ' + $setupHash)
 Write-Output ('Evidence outside project: ' + $verificationRoot)

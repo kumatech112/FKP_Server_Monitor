@@ -39,6 +39,7 @@ namespace ServerBotTracker
         {
             store = configurationStore;
             configuration = store.Load();
+            Branding.ApplyTo(this);
             Text = "ตรวจสอบเซิร์ฟเวอร์ | Server Bot Tracker";
             Font = new Font("Tahoma", 10F);
             ForeColor = Theme.Ink;
@@ -67,8 +68,11 @@ namespace ServerBotTracker
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
             var heading = new Panel { Dock = DockStyle.Fill };
-            heading.Controls.Add(new Label { Text = "ตรวจสอบเซิร์ฟเวอร์", Font = new Font("Tahoma", 22F, FontStyle.Bold), ForeColor = Theme.Ink, AutoSize = true, Location = new Point(0, 0) });
-            heading.Controls.Add(new Label { Text = "Dashboard ตรวจการเชื่อมต่อด้วย Ping • ดูผลผ่าน / ไม่ผ่านในหน้าจอเดียว", AutoSize = true, ForeColor = Color.FromArgb(93, 111, 136), Location = new Point(2, 48) });
+            PictureBox logo = Branding.CreateLogoBox(new Size(62, 64));
+            logo.Location = new Point(0, 0);
+            heading.Controls.Add(logo);
+            heading.Controls.Add(new Label { Text = "ตรวจสอบเซิร์ฟเวอร์", Font = new Font("Tahoma", 22F, FontStyle.Bold), ForeColor = Theme.Ink, AutoSize = true, Location = new Point(76, 0) });
+            heading.Controls.Add(new Label { Text = "ตรวจด้วย Ping • ดูผลผ่าน / ไม่ผ่านในหน้าจอเดียว", AutoSize = true, ForeColor = Color.FromArgb(93, 111, 136), Location = new Point(78, 48) });
             BuildNotificationButtons(heading);
             layout.Controls.Add(heading, 0, 0);
             var summary = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(14, 10, 14, 10), Margin = new Padding(0, 0, 0, 10) };

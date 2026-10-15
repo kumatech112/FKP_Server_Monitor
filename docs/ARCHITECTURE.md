@@ -89,7 +89,13 @@ A normal close applies a prepared update only when automatic updates remain enab
 
 Notification state is independent of `servers.json`: automatic-update preference, local-alert preference, last 100 messages, read state, and up to 1,000 seen IDs are persisted in `notifications.json`. A corrupt inbox is preserved read-only while the app uses memory-only state. Each server's alert baseline is session-local: two consecutive failed completed checks trigger down once, a later successful check triggers recovery once, and edits/deletions clear the baseline. Turning alert preferences on/off resets baselines. Announcement IDs suppress repeat notices across launches; published/expiry times are checked in UTC. Text is plain text, with no HTML, embedded actions or remote code execution. All mutations occur on the UI thread.
 
-The installer is a small native per-user Windows Forms setup compiled from `tools/setup/Setup.cs`. It embeds the same two-file ZIP, installs below LocalAppData/Programs, creates one Start menu shortcut and one HKCU uninstall registration. It takes the same per-user instance mutex and asks users to close the dashboard first. Uninstall removes only its known files, shortcut and product registry key; user settings remain. Setup has no third-party build-tool dependency.
+The installer is a small native per-user Windows Forms setup compiled from `tools/setup/Setup.cs` and `SetupForm.cs`. It embeds the same two-file ZIP, installs below LocalAppData/Programs, creates one Start menu shortcut and one HKCU uninstall registration. It takes the same per-user instance mutex and asks users to close the dashboard first. Uninstall removes only its known files, shortcut and product registry key; user settings remain. Setup has no third-party build-tool dependency.
+
+## Product branding and setup flow (1.3)
+
+The owner supplied `server-tracker.ico` and a 512-pixel PNG. Unmodified copies live under `assets/branding`; both are embedded into both EXEs. The ICO is also passed to the compiler as `/win32icon`. `Branding` loads resources from its own assembly, allowing the same readable source to compile into the app and setup. The app sets its window/taskbar icon, adds a header logo, assigns the tray icon, and gives dialogs the product icon through `Theme.ApplyDialog`. Owned icon/image instances are disposed with their window or control. Start menu shortcuts explicitly use the application EXE's icon, and the uninstall copy inherits the setup icon. The portable ZIP remains exactly two files.
+
+The existing light/blue palette was preserved following the owner's explicit preference. No FxSound implementation or artwork was copied. The installer now separates its UI from its existing installation engine: welcome -> installing -> complete, with a failed -> retry path. `SetupForm.RunPrimaryAction` disables reentry and close while an installation is active. `RunInstallationAsync` executes the existing installation callback on a dedicated STA thread so COM shortcut creation and mutex ownership retain their original threading assumptions. The UI awaits completion and reports success only after the callback returns. Failure leaves the error visible and allows retry. Optional launch occurs only when the user clicks Finish with the checkbox enabled. No changes were made to ping, server-list schema, update validation or notification rules.
 
 `tools/Package.ps1` creates the ZIP, matching manifest and setup under the ignored release tree. `Prepare-Announcement.ps1` prepares text locally and sends nothing. The GitHub workflow builds and verifies the package, then publishes three assets in the same public repository when a matching version tag is pushed. A manual run creates a draft. It uses GitHub's built-in workflow token with Contents write permission; clients receive no credential. The workflow initializes an empty announcement feed if needed. Compiler input is explicitly UTF-8 to preserve Thai on English Windows runners. Windows Authenticode signing is optional owner infrastructure via `tools/Sign.ps1`; HTTPS/SHA-256 validation is not a Windows publisher certificate.
 
@@ -118,13 +124,13 @@ All current application functions are listed below. Methods with the same name b
 | `src/NetworkProbe.cs` / NetworkProbe | `ObserveFailure` | Consume a late task exception without UI side effects |
 | `src/Theme.cs` / Theme | `Button` | Consistent button colors, dimensions and padding |
 | `src/Theme.cs` / Theme | `Label` | Consistent label styling |
-| `src/Theme.cs` / Theme | `ApplyDialog` | Apply Thai font, DPI behavior and modal window styling |
+| `src/Theme.cs` / Theme | `ApplyDialog` | Apply product icon, Thai font, DPI behavior and modal window styling |
 | `src/ServerDialog.cs` / ServerDialog | constructor | Build/populate single-entry editor |
 | `src/ServerDialog.cs` / ServerDialog | `SaveEntry` | Validate editor input and return an independent entry |
 | `src/ServerDialog.cs` / BulkDialog | constructor | Build multiline entry dialog |
 | `src/ServerDialog.cs` / BulkDialog | `AddEntries` | Parse one host per line, validate all and deduplicate lines |
 | `src/MainForm.cs` / MainForm | constructor | Load data, initialize window and attach lifecycle/timer handlers |
-| `src/MainForm.cs` / MainForm | `BuildLayout` | Arrange heading, totals, tools, grid and status |
+| `src/MainForm.cs` / MainForm | `BuildLayout` | Arrange branded heading, totals, tools, grid and status |
 | `src/MainForm.cs` / MainForm | `BuildToolbar` | Bind CRUD, checking and Stop actions |
 | `src/MainForm.cs` / MainForm | `AddEditButton` | Register buttons disabled during checks |
 | `src/MainForm.cs` / MainForm | `BuildSettings` | Wire filter, timeout, interval and automatic checking |
@@ -201,13 +207,32 @@ All current application functions are listed below. Methods with the same name b
 | `tools/setup/Setup.cs / Setup` | `Install` | Extract embedded payload, install files, shortcut and uninstall entry |
 | `tools/setup/Setup.cs / Setup` | `Remove` | Remove only known installed files and product registration |
 
+### Branding and guided installer functions
+
+| File / class | Function | Responsibility |
+| --- | --- | --- |
+| `src/Branding.cs / Branding` | `CreateIcon` | Load and clone the embedded multi-size ICO without retaining a resource stream |
+| `src/Branding.cs / Branding` | `ApplyTo` | Apply the product icon to a form and dispose it with the form |
+| `src/Branding.cs / Branding` | `CreateLogoBox` | Create a zoomed embedded PNG control and dispose its image with the control |
+| `src/MainForm.cs / MainForm` | `MainForm(ConfigurationStore, bool)` | Apply the app icon before building the unchanged dashboard workflow |
+| `src/MainForm.Notifications.cs / MainForm` | `InitializeNotifications` | Assign the product tray icon and dispose it when monitoring closes |
+| `tools/setup/SetupForm.cs / SetupForm` | constructor | Apply product styling and bind installation, close and keyboard actions |
+| `tools/setup/SetupForm.cs / SetupForm` | `BuildLayout` | Compose branded welcome, destination, progress, completion and action areas |
+| `tools/setup/SetupForm.cs / SetupForm` | `RunPrimaryAction` | Handle installation, visible failure/retry, completion and optional app launch |
+| `tools/setup/SetupForm.cs / SetupForm` | `RunInstallationAsync` | Run the existing install callback on one STA worker and propagate its result |
+| `tools/setup/SetupForm.cs / SetupForm` | `PreventCloseDuringInstallation` | Prevent user closure while file installation is active |
+| `tools/setup/Setup.cs / Setup` | `Main` | Route interactive setup through the separated SetupForm while preserving silent/uninstall routes |
+| `tools/setup/Setup.cs / Setup` | `Install` | Preserve the existing engine and explicitly set the Start menu icon to the product EXE |
+
 ## Build and verification boundaries
 
-`tools/Build.ps1` stages the complete C# source and manifest in a unique local development directory, compiles with warnings as errors, copies the two runtime files to `release`, prints the hash, and removes only its verified staging directory. It performs no network package restore.
+`tools/Build.ps1` stages the complete C# source, branding and manifest in a unique local development directory, compiles with warnings as errors, copies the two runtime files to `release`, prints the hash, and removes only its verified staging directory. `Package.ps1` embeds the same assets and shared Branding/Theme source into Setup. Neither command performs network package restore.
 
 `tools/Verify.ps1` compiles a separate verification runner outside the project. `tools/checks/Verification.cs` groups maintained checks in `VerifyPersistence`, `VerifyValidation`, `VerifyLegacyConfiguration`, `VerifyDeadline`, `VerifyNetworkAndGui`, `VerifyNotificationDialogs`, `VerifyServerDialogs`, and `VerifyLaunch`. `UpdatesVerification.cs` adds isolated feed/HTTP, notification, archive, rollback and real worker-process checks. Helper functions provide assertions, control discovery and bounded message pumping. The runner uses isolated fixture settings; it does not change the user's server list. It retains evidence outside the project and compares tested/released binary hashes.
 
 The source is reviewed before building and the resulting GUI/executable is checked after building. The revised checks verify legacy-list compatibility and the removal of unnecessary dashboard/editor controls. Verification details and practical limits are recorded in `VERIFICATION.md`.
+
+`tools/checks/SetupVerification.cs` verifies the original embedded asset bytes, compares Windows-rendered file icons, and exercises welcome/progress/completion/close-blocking/retry under a real message loop. Its injected callback performs no real installation or launch. `Run`, `VerifyBranding`, `Hash`, `SameImage`, `RenderIcon`, `CreateForm`, `VerifyInstallFlow`, `VerifyRetry`, `WaitUntilEnabled` and `Capture` keep these checks separate from app and installation code. The verification executable declares .NET Framework 4.8 and uses the application's runtime config, avoiding legacy TLS/icon compatibility defaults. Both tested EXEs are checked against their release hashes.
 
 ## API references
 
