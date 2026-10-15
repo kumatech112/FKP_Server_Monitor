@@ -28,9 +28,10 @@ $arguments = @(
     ('/out:' + $runnerPath), ('/reference:' + (Join-Path $verificationRoot 'ServerBotTracker.exe')),
     '/reference:System.dll', '/reference:System.Core.dll', '/reference:System.Drawing.dll',
     '/reference:System.Windows.Forms.dll', '/reference:System.Runtime.Serialization.dll',
-    '/reference:System.Net.Http.dll', '/reference:System.IO.Compression.dll', '/reference:System.IO.Compression.FileSystem.dll', '/reference:Microsoft.CSharp.dll',
+    '/reference:System.Net.Http.dll', '/reference:System.IO.Compression.dll', '/reference:System.IO.Compression.FileSystem.dll',
     (Join-Path $PSScriptRoot 'checks\Verification.cs'),
     (Join-Path $PSScriptRoot 'checks\SetupVerification.cs'),
+    (Join-Path $PSScriptRoot 'setup\DesktopShortcut.cs'),
     (Join-Path $PSScriptRoot 'checks\UpdatesVerification.cs')
 )
 $fixtureSource = Join-Path $verificationRoot 'OldVersion.cs'

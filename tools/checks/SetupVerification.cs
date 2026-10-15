@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
@@ -219,13 +220,21 @@ internal static class SetupVerification
             using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registry))
                 assert((string)key.GetValue("InstallLocation") == target && (string)key.GetValue("UninstallString") == "\"" + Path.Combine(target, "Uninstall.exe") + "\" --uninstall" && (string)key.GetValue("DisplayIcon") == Path.Combine(target, "ServerBotTracker.exe"), "Control Panel metadata uses the custom folder and correctly quotes its uninstall command");
             assert((string)remembered.Invoke(null, new object[] { registry }) == target, "A later Setup run remembers the registered custom installation folder");
-            dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
-            dynamic link = shell.CreateShortcut(shortcut);
+            object shortcutInstance = new DesktopShortcut.ShellLink();
             try
             {
-                assert(String.Equals((string)link.TargetPath, Path.Combine(target, "ServerBotTracker.exe"), StringComparison.OrdinalIgnoreCase) && String.Equals((string)link.WorkingDirectory, target, StringComparison.OrdinalIgnoreCase), "The actual Start menu shortcut resolves to the selected executable and working folder");
+                ((System.Runtime.InteropServices.ComTypes.IPersistFile)shortcutInstance).Load(shortcut, 0);
+                var link = (DesktopShortcut.IShellLinkW)shortcutInstance;
+                var executable = new StringBuilder(32768);
+                var working = new StringBuilder(32768);
+                var icon = new StringBuilder(32768);
+                int iconIndex;
+                link.GetPath(executable, executable.Capacity, IntPtr.Zero, 0);
+                link.GetWorkingDirectory(working, working.Capacity);
+                link.GetIconLocation(icon, icon.Capacity, out iconIndex);
+                assert(String.Equals(executable.ToString(), Path.Combine(target, "ServerBotTracker.exe"), StringComparison.OrdinalIgnoreCase) && String.Equals(working.ToString(), target, StringComparison.OrdinalIgnoreCase) && iconIndex == 0 && String.Equals(icon.ToString(), executable.ToString(), StringComparison.OrdinalIgnoreCase), "The actual Start menu shortcut retains the Unicode executable, working folder and product icon");
             }
-            finally { Marshal.FinalReleaseComObject(link); Marshal.FinalReleaseComObject(shell); }
+            finally { Marshal.FinalReleaseComObject(shortcutInstance); }
             string stage = Path.Combine(root, "custom-update-stage");
             Directory.CreateDirectory(stage);
             File.Copy(Path.Combine(root, "published-update.json"), Path.Combine(stage, "manifest.json"));

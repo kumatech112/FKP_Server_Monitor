@@ -70,7 +70,7 @@ workflow ใน `.github/workflows/release.yml` จะ build, package และ 
 ```powershell
 .\tools\Sign.ps1 -CertificateThumbprint '<thumbprint>' -Files '.\release\ServerBotTracker.exe'
 .\tools\Package.ps1 -Notes 'รายละเอียดรุ่น'
-.\tools\Sign.ps1 -CertificateThumbprint '<thumbprint>' -Files '.\release\publish\v1.5.0\ServerBotTracker-Setup.exe'
+.\tools\Sign.ps1 -CertificateThumbprint '<thumbprint>' -Files '.\release\publish\v1.5.1\ServerBotTracker-Setup.exe'
 ```
 
 ให้แจกตัวติดตั้งจากโฟลเดอร์รุ่นที่เซ็นแล้ว และทดสอบแพ็กเกจใหม่เสมอ ไม่มีการสร้างหรือซื้อใบรับรองแทนเจ้าของในงานนี้

@@ -89,7 +89,7 @@ A normal close applies a prepared update only when automatic updates remain enab
 
 Notification state is independent of `servers.json`: automatic-update preference, local-alert preference, last 100 messages, read state, and up to 1,000 seen IDs are persisted in `notifications.json`. A corrupt inbox is preserved read-only while the app uses memory-only state. Each server's alert baseline is session-local: two consecutive failed completed checks trigger down once, a later successful check triggers recovery once, and edits/deletions clear the baseline. Turning alert preferences on/off resets baselines. Announcement IDs suppress repeat notices across launches; published/expiry times are checked in UTC. Text is plain text, with no HTML, embedded actions or remote code execution. All mutations occur on the UI thread.
 
-The installer is a native per-user Windows Forms setup compiled from `tools/setup/Setup.cs`, `SetupForm.cs` and `InstallLocation.cs`. It embeds the same two-file ZIP, installs into the selected writable folder (default LocalAppData/Programs), creates one Start menu shortcut and one HKCU uninstall registration. It takes the same per-user instance mutex and asks users to close the dashboard first. Uninstall removes only known files and the matching shortcut/product registry key; user settings remain. Setup has no third-party build-tool dependency.
+The installer is a native per-user Windows Forms setup compiled from `tools/setup/Setup.cs`, `SetupForm.cs`, `InstallLocation.cs` and `DesktopShortcut.cs`. It embeds the same two-file ZIP, installs into the selected writable folder (default LocalAppData/Programs), creates one Start menu shortcut and one HKCU uninstall registration. It takes the same per-user instance mutex and asks users to close the dashboard first. Uninstall removes only known files and the matching shortcut/product registry key; user settings remain. Setup has no third-party build-tool dependency.
 
 ## Product branding and classic wizard flow (1.4)
 
@@ -106,6 +106,8 @@ Setup reads the previous HKCU InstallLocation through `InstallLocation.ReadRemem
 Confirmation freezes the normalized folder passed to `Action<string>`. `Install` delegates to `InstallAt`, which takes the product mutex, revalidates ownership, creates same-folder staging, backs up all three owned files, extracts the exact two-file payload, copies the uninstaller, and creates the shortcut/Control Panel entry using the same target. Staging cleanup and mutex release also run after directory creation errors. Completion launches the selected EXE with its folder as WorkingDirectory. Choosing a different folder leaves the previous copy in place and redirects the single product registration; no recursive move/delete is performed. Version 1.5 uninstallers preserve registration belonging to another folder; legacy uninstallers retain their older behavior.
 
 The updater already takes the running application's actual base directory and uses same-volume replacement; no updater implementation change is required. User settings stay at the original LocalAppData data path. Setup runs as the current user and requires a writable destination; it does not automatically elevate for protected folders. The portable archive remains exactly two files, preserving compatibility with the original 1.2 updater.
+
+`DesktopShortcut.Create` uses native Unicode `IShellLinkW` and `IPersistFile`, with explicit path, working directory, description and icon and guaranteed COM release. This replaces the WScript.Shell dynamic shortcut call after the English Windows CI runner rejected shortcut creation during real custom-folder installation. The verification runner compiles the same interop declarations, then independently loads the saved .lnk through IPersistFile and reads its target, working directory and icon. Thai paths are retained without depending on the machine's legacy script-host code page.
 
 The app updater still validates and replaces exactly two program files. It does not replace Uninstall.exe, so upgrading the installer UI requires running the new Setup once. Optional Control Panel version updates now compare normalized install paths, allowing trailing directory separators without matching a different installation. Ping behavior, settings schema and the dashboard layout are unchanged.
 
@@ -240,6 +242,8 @@ All current application functions are listed below. Methods with the same name b
 | `tools/setup/InstallLocation.cs / InstallLocation` | `ReadRemembered` | Read the registered folder with a safe default for absent/invalid/inaccessible metadata |
 | `tools/setup/InstallLocation.cs / InstallLocation` | `Matches` | Compare normalized folders for registration ownership |
 | `tools/setup/InstallLocation.cs / InstallLocation` | `ValidateProductFiles` | Reject unrelated files with product-owned names before writes |
+| `tools/setup/DesktopShortcut.cs / DesktopShortcut` | `Create` | Save a native Unicode Windows shortcut and always release its COM object |
+| `tools/setup/DesktopShortcut.cs / IShellLinkW` | COM interface methods | Declare the complete native vtable for Unicode shortcut creation and verification |
 | `tools/setup/SetupForm.cs / SetupForm` | `GoBack` | Return to editable destination or welcome while preserving the path |
 | `tools/setup/SetupForm.cs / SetupForm` | `BrowseDirectory` | Open the native folder chooser and retain the exact selected folder |
 | `tools/setup/SetupForm.cs / SetupForm` | `ShowPage` | Render state-specific text, navigation, progress, confirmation and completion |
@@ -262,3 +266,4 @@ The source is reviewed before building and the resulting GUI/executable is check
 ## API references
 
 - [Microsoft: Ping](https://learn.microsoft.com/en-us/dotnet/api/system.net.networkinformation.ping?view=netframework-4.8)
+- [Microsoft: Unicode IShellLinkW](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nn-shobjidl_core-ishelllinkw)

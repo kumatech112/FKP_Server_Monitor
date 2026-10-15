@@ -27,11 +27,12 @@ $arguments = @(
     ('/resource:' + (Join-Path $brandingRoot 'server-tracker.ico') + ',ServerBotTracker.Branding.Icon'),
     ('/resource:' + (Join-Path $brandingRoot 'server-tracker.png') + ',ServerBotTracker.Branding.Logo'),
     '/reference:System.dll', '/reference:System.Core.dll', '/reference:System.Drawing.dll',
-    '/reference:System.Windows.Forms.dll', '/reference:Microsoft.CSharp.dll',
+    '/reference:System.Windows.Forms.dll',
     '/reference:System.IO.Compression.dll', '/reference:System.IO.Compression.FileSystem.dll',
     (Join-Path $PSScriptRoot 'setup\Setup.cs'),
     (Join-Path $PSScriptRoot 'setup\SetupForm.cs'),
     (Join-Path $PSScriptRoot 'setup\InstallLocation.cs'),
+    (Join-Path $PSScriptRoot 'setup\DesktopShortcut.cs'),
     (Join-Path $projectRoot 'src\AssemblyInfo.cs'),
     (Join-Path $projectRoot 'src\Branding.cs'),
     (Join-Path $projectRoot 'src\Theme.cs')

@@ -4,7 +4,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Globalization;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Threading;
 using System.Windows.Forms;
@@ -132,16 +131,7 @@ internal static class Setup
                     File.Copy(Path.Combine(stage, file), Path.Combine(target, file), true);
                     applied.Add(file);
                 }
-                Type shellType = Type.GetTypeFromProgID("WScript.Shell");
-                dynamic shell = Activator.CreateInstance(shellType);
-                dynamic shortcut = shell.CreateShortcut(shortcutPath);
-                shortcut.TargetPath = Path.Combine(target, "ServerBotTracker.exe");
-                shortcut.IconLocation = Path.Combine(target, "ServerBotTracker.exe") + ",0";
-                shortcut.WorkingDirectory = target;
-                shortcut.Description = Product;
-                shortcut.Save();
-                Marshal.FinalReleaseComObject(shortcut);
-                Marshal.FinalReleaseComObject(shell);
+                DesktopShortcut.Create(shortcutPath, Path.Combine(target, "ServerBotTracker.exe"), target, Product);
                 using (RegistryKey key = Registry.CurrentUser.CreateSubKey(registryPath))
                 {
                     key.SetValue("DisplayName", Product);

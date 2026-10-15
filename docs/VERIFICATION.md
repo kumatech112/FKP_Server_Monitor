@@ -1,4 +1,4 @@
-# Verification: Server Bot Tracker 1.5
+# Verification: Server Bot Tracker 1.5.1
 
 Date: 2026-10-15 (Asia/Bangkok).
 
@@ -20,11 +20,15 @@ The unchanged 1.4 build passed all 89 baseline checks before edits. The selected
 
 The destination and confirmation renders were inspected. Confirmation wraps long paths and provides vertical scrolling. The native folder chooser is wired to the Browse button; automated fixtures use typed paths rather than operating the native picker.
 
-Final evidence: `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\verification-20261015-140635-95e153ae`.
+Final evidence: `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\verification-20261015-141026-12c03b85`.
 
-- Application EXE: `DDF33F96DA37DD886F3EC06AC50038B95BFCD6F4C912A2CAAB122D2B136D84B8`
-- Setup EXE: `616B48E3586014C0F847A1D8DFEB2926EA802B26F241041C73090FD6F618342D`
-- ZIP: `FF8809A909A1E056CC503E6659CF2629B0FF0C83954D89493708CBBCFC4F1DFE`
+- Application EXE: `A3BAFDC5AB30102F0CD89BFC02381279ED541019BB84B1557C231334A7D9BC82`
+- Setup EXE: `592265DECAB3B94ADAC0ADF71D6C842627C5B177801CF5A251287D6A72040F0A`
+- ZIP: `C0F3A97BBB471EBE89AFB2F8C919D8C5750BDAB3D6684B5720626E57477605E5`
+
+## Publication correction
+
+The first 1.5.0 tag workflow stopped during the real custom-folder installation check: WScript.Shell shortcut creation raised an ArgumentException on the English Windows runner. No release assets were published. Version 1.5.1 replaces that shortcut call with native Unicode IShellLinkW/IPersistFile; checks load the saved link and compare executable, working folder and icon. The failed tag remains in Git history rather than being rewritten.
 
 ## Current delivery boundaries
 
