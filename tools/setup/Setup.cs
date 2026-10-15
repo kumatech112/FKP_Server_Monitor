@@ -21,7 +21,8 @@ internal static class Setup
     {
         try
         {
-            if (args.Length == 1 && args[0] == "--uninstall")
+            bool directUninstall = args.Length == 0 && String.Equals(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "Uninstall.exe", StringComparison.OrdinalIgnoreCase);
+            if (directUninstall || (args.Length == 1 && args[0] == "--uninstall"))
             {
                 StartUninstallWizard();
                 return 0;

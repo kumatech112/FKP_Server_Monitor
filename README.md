@@ -61,6 +61,8 @@ The default for a first install remains `%LOCALAPPDATA%\Programs\ServerBotTracke
 
 Install or removal runs on a dedicated STA thread so the window stays responsive; closing is blocked during file changes. The installer registers version, publisher, icon, estimated size and uninstall command for the current Windows user. Run the new Setup once to install the new uninstall wizard: portable ZIP updates continue replacing only the application and runtime config, and do not replace an older uninstaller.
 
+Version 1.5.2 fixes direct launch: double-clicking the installed `Uninstall.exe` opens the uninstall wizard without command-line arguments. Control Panel's existing `--uninstall` command continues to work. Earlier copies incorrectly entered installation mode when opened directly and could try to overwrite the running uninstaller. Run Setup 1.5.2 in the existing installation folder once to replace that older Uninstall.exe.
+
 ## Saved server lists
 
 Names, addresses and preferences are stored per Windows user at `%LOCALAPPDATA%\Kuma\ServerBotTracker\servers.json`. Atomic save retains the preceding version as `servers.json.bak`. Corrupt or unsupported settings are reported and preserved.

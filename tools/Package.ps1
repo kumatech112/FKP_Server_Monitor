@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Notes = 'Choose and remember the installation folder with Browse; uninstall and updates follow the selected location.')
+param([string]$Notes = 'Fix direct Uninstall.exe launch opening setup instead of the uninstall wizard. Custom installation folders remain supported.')
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot

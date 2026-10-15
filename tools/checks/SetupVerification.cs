@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Management;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -25,6 +26,7 @@ internal static class SetupVerification
         VerifyRetry(setupAssembly, root, assert);
         VerifyCustomInstallation(setupAssembly, root, assert);
         VerifyUninstall(setupAssembly, root, assert);
+        VerifyUninstallEntryPoint(root, assert);
         assert(UpdateInstaller.MatchesInstallLocation(root, root.ToUpperInvariant() + Path.DirectorySeparatorChar), "Control Panel version matching accepts equivalent paths with a trailing separator");
         assert(!UpdateInstaller.MatchesInstallLocation(null, root) && !UpdateInstaller.MatchesInstallLocation(root, root + "-other"), "Control Panel version matching rejects absent and different installations");
     }
@@ -327,6 +329,76 @@ internal static class SetupVerification
             Registry.CurrentUser.DeleteSubKeyTree(registry, false);
         }
         if (failure != null) throw failure;
+    }
+
+    private static void VerifyUninstallEntryPoint(string root, Action<bool, string> assert)
+    {
+        string target = Path.Combine(root, "ถอนการติดตั้งโดยตรง", "Server Bot Tracker");
+        Directory.CreateDirectory(target);
+        string uninstaller = Path.Combine(target, "Uninstall.exe");
+        File.Copy(Path.Combine(root, "ServerBotTracker-Setup.exe"), uninstaller);
+        File.WriteAllText(Path.Combine(target, "servers.json"), "Keep direct-launch fixture data");
+        foreach (string arguments in new[] { String.Empty, "--uninstall" })
+        {
+            Process helper = null;
+            string helperPath = null;
+            using (Process launcher = Process.Start(new ProcessStartInfo(uninstaller, arguments) { UseShellExecute = false, WorkingDirectory = target }))
+            {
+                try
+                {
+                    var elapsed = Stopwatch.StartNew();
+                    bool targetForwarded = false;
+                    while (helper == null && elapsed.ElapsedMilliseconds < 10000)
+                    {
+                        using (var query = new ManagementObjectSearcher("SELECT ProcessId, ExecutablePath, CommandLine FROM Win32_Process WHERE ParentProcessId = " + launcher.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+                        using (ManagementObjectCollection children = query.Get())
+                        {
+                            foreach (ManagementObject child in children)
+                            using (child)
+                            {
+                                string path = child["ExecutablePath"] as string;
+                                string command = child["CommandLine"] as string;
+                                if (path != null && command != null && Path.GetFileName(path).StartsWith("ServerBotTracker-uninstall-", StringComparison.OrdinalIgnoreCase) && command.Contains("--uninstall-wizard") && command.Contains("\"" + target + "\""))
+                                {
+                                    helperPath = path;
+                                    targetForwarded = true;
+                                    helper = Process.GetProcessById(Convert.ToInt32(child["ProcessId"], System.Globalization.CultureInfo.InvariantCulture));
+                                    if (helper.Handle == IntPtr.Zero) throw new InvalidOperationException("Cannot retain the fixture helper process handle");
+                                    break;
+                                }
+                            }
+                        }
+                        if (helper == null) Thread.Sleep(100);
+                    }
+                    bool launcherExited = launcher.WaitForExit(10000);
+                    bool uninstallWindow = false;
+                    if (helper != null)
+                    {
+                        helper.WaitForInputIdle(10000);
+                        elapsed.Restart();
+                        while (!helper.HasExited && elapsed.ElapsedMilliseconds < 5000)
+                        {
+                            helper.Refresh();
+                            if (helper.MainWindowTitle.Contains("Server Bot Tracker") && helper.MainWindowTitle.Contains("ถอนการติดตั้ง")) { uninstallWindow = true; break; }
+                            Thread.Sleep(100);
+                        }
+                    }
+                    assert(targetForwarded && launcherExited && launcher.ExitCode == 0 && uninstallWindow, arguments.Length == 0 ? "Double-clicking the real Uninstall.exe opens the temporary uninstall wizard for its own Thai folder" : "Control Panel's --uninstall route still opens the same uninstall wizard");
+                    bool closed = helper.CloseMainWindow() && helper.WaitForExit(5000);
+                    assert(closed && helper.ExitCode == 0 && File.Exists(uninstaller) && !File.Exists(Path.Combine(target, "ServerBotTracker.exe")) && File.ReadAllText(Path.Combine(target, "servers.json")) == "Keep direct-launch fixture data", "Cancelling the real uninstall welcome screen exits cleanly without installing or removing fixture files");
+                }
+                finally
+                {
+                    if (helper != null)
+                    {
+                        if (!helper.HasExited) { helper.CloseMainWindow(); if (!helper.WaitForExit(3000)) helper.Kill(); }
+                        helper.Dispose();
+                    }
+                    if (!launcher.HasExited) { launcher.CloseMainWindow(); if (!launcher.WaitForExit(3000)) launcher.Kill(); }
+                    if (helperPath != null && File.Exists(helperPath)) File.Delete(helperPath);
+                }
+            }
+        }
     }
 
     private static void WaitUntilEnabled(Button action)

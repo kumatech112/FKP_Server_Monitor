@@ -1,4 +1,33 @@
-# Verification: Server Bot Tracker 1.5.1
+# Verification: Server Bot Tracker 1.5.2
+
+Date: 2026-10-15 (Asia/Bangkok).
+
+The reported failure occurs when Uninstall.exe is opened directly. Source inspection found that only --uninstall selected removal mode, so zero-argument launch incorrectly opened Setup and attempted self-replacement if installation was confirmed. Main now recognizes the installed Uninstall.exe basename without arguments and follows the existing temporary uninstall helper route.
+
+## Local checks
+
+The unchanged 1.5.1 baseline passed 102 checks before edits. The final 1.5.2 package passed **106 checks**. New real-process checks launch a copy named Uninstall.exe in an isolated Thai folder containing spaces, both directly and with the Control Panel flag. They identify the launched helper by parent PID and exact target argument, verify its actual uninstall window title, close its welcome screen normally, check exit code 0 and confirm that fixture files were neither installed nor removed. A test-only process-handle lifetime error in the first run was corrected before the passing run.
+
+Existing custom folder, native shortcut, mutex coordination, removal/retry, preservation, ping, settings, GUI, update and notification checks continue to pass. Compiler warnings remain errors. No application or uninstall engine logic changed beyond entry-mode selection.
+
+- Evidence: `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\verification-20261015-145551-4ba21d68`
+- App EXE: `5DC4ACC6367650DF4876EC114ADFFE5CBB4C9ABE068CDF0F87FB0102F00FEFB5`
+- Setup EXE: `EEED2BC5940246A6093032AFE8DFE4771F231F59F4B7F44F50547539323C15BF`
+- ZIP: `5E49163A93531B5B905932CA7DB4D2BF8DE736CE406C05759B59F365430AFDCA`
+
+## Scope and installed-copy boundary
+
+Read-only inspection found no running product process. This computer's registered default folder no longer contains the application or Uninstall.exe, despite the remaining 1.4 registry entry. No stale registration or production files were deleted. The user was asked for the folder of the affected copy so that it can be repaired directly if available. All deletion tests remain isolated fixtures.
+
+Running Setup 1.5.2 in the existing product folder replaces the old Uninstall.exe. Automatic app ZIP updates remain exactly two files and do not replace an older uninstaller. Close the dashboard before confirming uninstall; the existing real-running-app guard remains in place.
+
+Changed functions: `tools/setup/Setup.cs / Setup.Main`; `tools/checks/SetupVerification.cs / Run, VerifyUninstallEntryPoint`. Version, package notes and verification-only Framework references were updated separately.
+
+Short commit message: `fix: open uninstall mode when Uninstall.exe is launched directly`
+
+---
+
+# Historical verification: Server Bot Tracker 1.5.1
 
 Date: 2026-10-15 (Asia/Bangkok).
 

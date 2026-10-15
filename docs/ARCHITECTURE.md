@@ -109,6 +109,12 @@ The updater already takes the running application's actual base directory and us
 
 `DesktopShortcut.Create` uses native Unicode `IShellLinkW` and `IPersistFile`, with explicit path, working directory, description and icon and guaranteed COM release. This replaces the WScript.Shell dynamic shortcut call after the English Windows CI runner rejected shortcut creation during real custom-folder installation. The verification runner compiles the same interop declarations, then independently loads the saved .lnk through IPersistFile and reads its target, working directory and icon. Thai paths are retained without depending on the machine's legacy script-host code page.
 
+### Direct uninstaller launch correction (1.5.2)
+
+`Setup.Main` now treats zero arguments and the executable basename `Uninstall.exe` (case-insensitive) as an uninstall launch. It uses the same temporary helper, original-directory handoff and confirmation wizard as the explicit `--uninstall` route. Previously only that flag selected uninstall mode; double-clicking the installed copy incorrectly opened Setup and could attempt to overwrite its own running file. The regular ServerBotTracker-Setup.exe welcome/destination flow, silent install, mutex guard, removal engine and user data paths remain unchanged.
+
+`SetupVerification.VerifyUninstallEntryPoint` copies the real setup to Uninstall.exe inside an isolated Thai folder with spaces. It launches that EXE both without arguments and with the Control Panel flag, identifies only its child helper through a parent-PID WMI query and matching target argument, verifies the actual uninstall window title, then closes the welcome screen and checks clean exit and unchanged fixture files. No removal is confirmed against the user's installation. System.Management is used only by developer verification, not the shipped app/setup.
+
 The app updater still validates and replaces exactly two program files. It does not replace Uninstall.exe, so upgrading the installer UI requires running the new Setup once. Optional Control Panel version updates now compare normalized install paths, allowing trailing directory separators without matching a different installation. Ping behavior, settings schema and the dashboard layout are unchanged.
 
 `tools/Package.ps1` creates the ZIP, matching manifest and setup under the ignored release tree. `Prepare-Announcement.ps1` prepares text locally and sends nothing. The GitHub workflow builds and verifies the package, then publishes three assets in the same public repository when a matching version tag is pushed. A manual run creates a draft. It uses GitHub's built-in workflow token with Contents write permission; clients receive no credential. The workflow initializes an empty announcement feed if needed. Compiler input is explicitly UTF-8 to preserve Thai on English Windows runners. Windows Authenticode signing is optional owner infrastructure via `tools/Sign.ps1`; HTTPS/SHA-256 validation is not a Windows publisher certificate.
@@ -216,7 +222,7 @@ All current application functions are listed below. Methods with the same name b
 | `src/UpdateInstaller.cs / UpdateInstaller` | `Apply` | Revalidate, back up, replace, rollback and update matching Windows version metadata |
 | `tools/setup/Setup.cs / Setup` | `Target getter` | Read the remembered installation folder or per-user default |
 | `tools/setup/Setup.cs / Setup` | `Shortcut getter` | Resolve the product Start menu shortcut |
-| `tools/setup/Setup.cs / Setup` | `Main` | Route Thai setup UI, silent install and uninstall helper |
+| `tools/setup/Setup.cs / Setup` | `Main` | Detect direct Uninstall.exe launch and route Thai setup UI, silent install and uninstall helper |
 | `tools/setup/Setup.cs / Setup` | `AcquireInstance` | Coordinate with the dashboard's per-user mutex |
 | `tools/setup/Setup.cs / Setup` | `Install` | Bind the selected target to the product shortcut and registry paths |
 | `tools/setup/Setup.cs / Setup` | `InstallAt` | Validate and install payload, uninstaller, shortcut and registry metadata at an explicit target |
