@@ -34,7 +34,7 @@ The existing results dictionary still feeds both views. `ServerResult.Health` ke
 
 The unchanged 1.8.0 baseline passed **173 checks** before edits. The rebuilt 1.8.1 app and installer passed **178 checks** afterward, including the retained monitoring, SQL, alert delivery, configuration, installation/removal, rollback and update checks. Existing GUI checks now also exercise compact pending/normal/problem/disconnected labels, shared selection, six/nine-column layouts, and the separate Listing view. Both layouts were rendered and visually reviewed with isolated UI fixture data. The actual packaged entry point was launched.
 
-Evidence: `Archive/verification/verification-20261019-105400-37e80a84/verification.txt`.
+Evidence: `Archive/verification/verification-20261019-105635-5425a896/verification.txt`.
 Screenshots: `compact-dashboard.png`, `compact-dashboard-wide.png`, `listing-wide.png`. These screenshots contain test entries, not the user's saved server list. No production accounts/endpoints were used or modified. The local process is not elevated; administrator-only operations remain the CI runner's responsibility.
 
 | Final local artifact | SHA-256 |
@@ -47,4 +47,4 @@ Generated programs/evidence stay in Program/Archive and remain excluded from Git
 
 Short commit message: `feat: add compact CCTV-style server dashboard`
 
-The density fixture explicitly sets reference sizes after window creation and scales them with display DPI. This avoids a smaller CI display constraining the initial window and producing a false density failure. Production layout behavior is unchanged by this test correction.
+The density fixture uses a child preview hosted inside an isolated test window, sets reference client sizes after creation, scales them with display DPI and records actual layout dimensions. This allows the reference layout to be measured independently of a smaller headless desktop. Production layout behavior is unchanged by this test correction.

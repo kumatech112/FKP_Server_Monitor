@@ -347,11 +347,16 @@ internal static class MonitoringVerification
         for (int index = 2; index <= 36; index++)
             configuration.Servers.Add(new ServerEntry { Name = "เครื่องทดสอบ " + index.ToString("00"), Host = "127.0.0.1" });
         store.Save(configuration);
+        using (var previewHost = new Form())
         using (var form = new MainForm(store, false))
         {
+            // A child preview can exercise a wide layout even on a small headless desktop.
+            form.TopLevel = false;
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = Point.Empty;
+            previewHost.Controls.Add(form);
+            previewHost.Show();
             form.Show();
-            // Windows can constrain an initially shown window to the runner's display.
-            // Apply the reference client size after creation and account for display DPI.
             float uiScale = form.DeviceDpi / 96f;
             form.ClientSize = new Size((int)(1260 * uiScale), (int)(820 * uiScale));
             Application.DoEvents();
@@ -365,9 +370,12 @@ internal static class MonitoringVerification
             assert(grid.Visible && !cards.Visible, "Top navigation switches to the server list without changing entries");
             showDashboard.Invoke(form, new object[] { true });
             assert(cards.Visible && !grid.Visible, "Top navigation restores the dashboard view");
+            string dimensions = "client=" + form.ClientSize + ", panel=" + cards.ClientSize + ", dpi=" + form.DeviceDpi
+                + ", card=" + card.Size + ", columns=" + cards.Controls.OfType<ServerCard>().Select(item => item.Left).Distinct().Count();
+            Console.WriteLine("Compact layout reference: " + dimensions);
             assert(cards.Controls.OfType<ServerCard>().All(item => item.Height <= form.DeviceDpi / 96f * 90)
                 && cards.Controls.OfType<ServerCard>().Select(item => item.Left).Distinct().Count() >= 6,
-                "Compact dashboard fits at least six small cards per row at the reference window size");
+                "Compact dashboard fits at least six small cards per row at the reference window size: " + dimensions);
             assert(card.StatusText == "ยังไม่ตรวจ", "An unchecked compact card cannot falsely report normal");
             var center = (NotificationCenter)typeof(MainForm).GetField("notifications", Instance).GetValue(form);
             MethodInfo publish = typeof(MainForm).GetMethod("PublishServerAlert", Instance);
@@ -421,6 +429,7 @@ internal static class MonitoringVerification
             showDashboard.Invoke(form, new object[] { false });
             Capture(form, Path.Combine(root, "listing-wide.png"));
             form.Close();
+            previewHost.Close();
         }
     }
 }
