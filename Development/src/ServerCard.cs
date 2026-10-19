@@ -1,9 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Globalization;
-using System.Linq;
 using System.Windows.Forms;
 
 namespace ServerBotTracker
@@ -35,45 +32,90 @@ namespace ServerBotTracker
         }
     }
 
-    public sealed class ServerCard : Control
+        public sealed class ServerCard : Control
     {
         private readonly ServerEntry server;
-        private readonly IList<long?> samples;
         private ServerResult result;
         private bool selected;
-        public string ServerId { get { return server.Id; } }
-        public bool Selected { get { return selected; } set { selected = value; Invalidate(); } }
+
+        public string ServerId
+        {
+            get { return server.Id; }
+        }
+
+        public string StatusText
+        {
+            get
+            {
+                if (result == null || result.Health == "pending") return "ยังไม่ตรวจ";
+                if (result.Health == "healthy") return "ปกติ";
+                if (result.Health == "warning") return "มีปัญหา";
+                return "เชื่อมต่อไม่ได้";
+            }
+        }
+
+        public bool Selected
+        {
+            get { return selected; }
+            set
+            {
+                selected = value;
+                Invalidate();
+            }
+        }
+
         public event EventHandler SelectedByUser;
         public event EventHandler EditRequested;
 
-        public ServerCard(ServerEntry entry, IList<long?> history)
+        public ServerCard(ServerEntry entry)
         {
-            server = entry; samples = history;
-            Name = "ServerCard_" + entry.Id; Size = new Size(300, 236); Margin = new Padding(0, 0, 14, 14);
-            BackColor = DashboardStyle.Background; Cursor = Cursors.Hand; TabStop = true;
-            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+            server = entry;
+            Name = "ServerCard_" + entry.Id;
+            Size = new Size(196, 84);
+            Margin = new Padding(0, 0, 8, 8);
+            BackColor = DashboardStyle.Background;
+            Cursor = Cursors.Hand;
+            TabStop = true;
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint
+                | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
             AccessibleName = entry.Name;
+            AccessibleDescription = StatusText;
         }
 
         public void UpdateResult(ServerResult value)
         {
-            result = value; AccessibleDescription = value == null ? "ยังไม่ตรวจ" : value.Summary; Invalidate();
+            result = value;
+            AccessibleDescription = StatusText;
+            Invalidate();
         }
 
         protected override void OnClick(EventArgs e)
         {
-            Focus(); base.OnClick(e); EventHandler handler = SelectedByUser; if (handler != null) handler(this, e);
+            Focus();
+            base.OnClick(e);
+            EventHandler handler = SelectedByUser;
+            if (handler != null) handler(this, e);
         }
 
         protected override void OnDoubleClick(EventArgs e)
         {
-            base.OnDoubleClick(e); EventHandler handler = EditRequested; if (handler != null) handler(this, e);
+            base.OnDoubleClick(e);
+            EventHandler handler = EditRequested;
+            if (handler != null) handler(this, e);
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Space) { OnClick(EventArgs.Empty); e.Handled = true; }
-            if (e.KeyCode == Keys.Enter) { OnDoubleClick(EventArgs.Empty); e.Handled = true; }
+            if (e.KeyCode == Keys.Space)
+            {
+                OnClick(EventArgs.Empty);
+                e.Handled = true;
+            }
+            if (e.KeyCode == Keys.Enter)
+            {
+                OnDoubleClick(EventArgs.Empty);
+                e.Handled = true;
+            }
             base.OnKeyDown(e);
         }
 
@@ -85,65 +127,47 @@ namespace ServerBotTracker
             float width = ClientSize.Width / scale;
             float height = ClientSize.Height / scale;
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using (GraphicsPath outline = Rounded(new RectangleF(1, 1, width - 3, height - 3), 15))
+            using (GraphicsPath outline = Rounded(new RectangleF(1, 1, width - 3, height - 3), 9))
             using (var fill = new SolidBrush(DashboardStyle.Surface))
-            using (var border = new Pen(selected ? DashboardStyle.Blue : DashboardStyle.Border, selected ? 2 : 1))
+            using (var border = new Pen(selected || Focused ? DashboardStyle.Blue : DashboardStyle.Border, selected || Focused ? 2 : 1))
             {
-                e.Graphics.FillPath(fill, outline); e.Graphics.DrawPath(border, outline);
+                e.Graphics.FillPath(fill, outline);
+                e.Graphics.DrawPath(border, outline);
             }
             Color health = DashboardStyle.HealthColor(result);
-            using (var dot = new SolidBrush(health)) e.Graphics.FillEllipse(dot, 18, 20, 9, 9);
-            DrawText(e.Graphics, server.Name, 35, 15, width - 52, 26, 17, DashboardStyle.Ink, true);
-            DrawText(e.Graphics, server.Host, 18, 43, width - 36, 23, 12, DashboardStyle.Muted, false);
-            string latency = result != null && result.Ping != null && result.Ping.Milliseconds.HasValue ? result.Ping.Milliseconds.Value.ToString(CultureInfo.InvariantCulture) + " ms" : "—";
-            DrawText(e.Graphics, latency, 18, 72, width - 36, 34, 28, health, true);
-            DrawText(e.Graphics, result == null ? "ยังไม่ตรวจ" : result.Summary, 18, 108, width - 36, 24, 13, health, false);
-            bool databaseEnabled = server.Database != null && server.Database.Enabled;
-            string database = !databaseEnabled ? "SQL Server: ไม่ได้เปิดตรวจ" : result == null || result.Database == null ? "SQL Server: รอตรวจ" : result.Database.Success ? "SQL Server: ใช้งานได้" : "SQL Server: เชื่อมต่อไม่ได้";
-            Color databaseColor = !databaseEnabled || result == null || result.Database == null ? DashboardStyle.Muted : result.Database.Success ? DashboardStyle.Green : DashboardStyle.Amber;
-            DrawText(e.Graphics, database, 18, 133, width - 36, 22, 12, databaseColor, false);
-            DrawTrend(e.Graphics, new RectangleF(18, 164, width - 36, Math.Max(20, height - 201)), health);
-            string checkedAt = result == null ? "ยังไม่มีผลตรวจ" : "ตรวจล่าสุด " + result.CheckedAt.ToString("HH:mm:ss");
-            DrawText(e.Graphics, checkedAt, 18, height - 30, width - 36, 20, 11, DashboardStyle.Muted, false);
-        }
-
-        private void DrawTrend(Graphics graphics, RectangleF area, Color color)
-        {
-            if (samples.Count == 0) { DrawText(graphics, "กราฟเวลาตอบกลับ Ping", area.X, area.Y, area.Width, area.Height, 11, DashboardStyle.Muted, false); return; }
-            double maximum = Math.Max(1, samples.Where(item => item.HasValue).Select(item => (double)item.Value).DefaultIfEmpty(1).Max());
-            using (var line = new Pen(color, 1.7f))
-            using (var failed = new SolidBrush(DashboardStyle.Red))
-            using (var point = new SolidBrush(color))
+            using (var accent = new SolidBrush(health))
             {
-                PointF? previous = null;
-                for (int index = 0; index < samples.Count; index++)
-                {
-                    float x = area.Left + (samples.Count == 1 ? area.Width / 2 : area.Width * index / (samples.Count - 1));
-                    if (!samples[index].HasValue) { graphics.FillEllipse(failed, x - 2, area.Bottom - 4, 4, 4); previous = null; continue; }
-                    float y = area.Bottom - 3 - (float)(samples[index].Value / maximum) * (area.Height - 6);
-                    var current = new PointF(x, y);
-                    if (previous.HasValue) graphics.DrawLine(line, previous.Value, current);
-                    else graphics.FillEllipse(point, x - 2, y - 2, 4, 4);
-                    previous = current;
-                }
+                e.Graphics.FillRectangle(accent, 11, 16, 3, height - 32);
+                e.Graphics.FillEllipse(accent, 24, 51, 7, 7);
             }
+            DrawText(e.Graphics, server.Name, new RectangleF(24, 12, width - 38, 27), 15, DashboardStyle.Ink, true);
+            DrawText(e.Graphics, StatusText, new RectangleF(38, 44, width - 52, 26), 14, health, false);
         }
 
-        private static void DrawText(Graphics graphics, string value, float x, float y, float width, float height, float size, Color color, bool bold)
+        private static void DrawText(Graphics graphics, string value, RectangleF area, float size, Color color, bool bold)
         {
             using (var font = new Font("Tahoma", size, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel))
             using (var brush = new SolidBrush(color))
-            using (var format = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap })
-                graphics.DrawString(value, font, brush, new RectangleF(x, y, width, height), format);
+            using (var format = new StringFormat
+            {
+                Trimming = StringTrimming.EllipsisCharacter,
+                FormatFlags = StringFormatFlags.NoWrap
+            })
+            {
+                graphics.DrawString(value, font, brush, area, format);
+            }
         }
 
         private static GraphicsPath Rounded(RectangleF area, float radius)
         {
-            var path = new GraphicsPath(); float diameter = radius * 2;
+            var path = new GraphicsPath();
+            float diameter = radius * 2;
             path.AddArc(area.Left, area.Top, diameter, diameter, 180, 90);
             path.AddArc(area.Right - diameter, area.Top, diameter, diameter, 270, 90);
             path.AddArc(area.Right - diameter, area.Bottom - diameter, diameter, diameter, 0, 90);
-            path.AddArc(area.Left, area.Bottom - diameter, diameter, diameter, 90, 90); path.CloseFigure(); return path;
+            path.AddArc(area.Left, area.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+            return path;
         }
     }
 }

@@ -344,13 +344,15 @@ internal static class MonitoringVerification
         var configuration = new AppConfiguration();
         ServerEntry entry = SqlServer();
         configuration.Servers.Add(entry);
+        for (int index = 2; index <= 36; index++)
+            configuration.Servers.Add(new ServerEntry { Name = "เครื่องทดสอบ " + index.ToString("00"), Host = "127.0.0.1" });
         store.Save(configuration);
         using (var form = new MainForm(store, false))
         {
             form.Show();
             Application.DoEvents();
             var cards = (FlowLayoutPanel)Find(form, "ServerCards");
-            var card = cards.Controls.OfType<ServerCard>().Single();
+            var card = cards.Controls.OfType<ServerCard>().Single(item => item.ServerId == entry.Id);
             typeof(ServerCard).GetMethod("OnClick", Instance).Invoke(card, new object[] { EventArgs.Empty });
             var grid = (DataGridView)typeof(MainForm).GetField("grid", Instance).GetValue(form);
             assert(card.Selected && grid.SelectedRows.Count == 1, "Selecting a dashboard card selects the same server for edit and check actions");
@@ -359,6 +361,10 @@ internal static class MonitoringVerification
             assert(grid.Visible && !cards.Visible, "Top navigation switches to the server list without changing entries");
             showDashboard.Invoke(form, new object[] { true });
             assert(cards.Visible && !grid.Visible, "Top navigation restores the dashboard view");
+            assert(cards.Controls.OfType<ServerCard>().All(item => item.Height <= form.DeviceDpi / 96f * 90)
+                && cards.Controls.OfType<ServerCard>().Select(item => item.Left).Distinct().Count() >= 6,
+                "Compact dashboard fits at least six small cards per row at the default window size");
+            assert(card.StatusText == "ยังไม่ตรวจ", "An unchecked compact card cannot falsely report normal");
             var center = (NotificationCenter)typeof(MainForm).GetField("notifications", Instance).GetValue(form);
             MethodInfo publish = typeof(MainForm).GetMethod("PublishServerAlert", Instance);
             var result = new ServerResult { Ping = new ProbeResult { Success = true, Message = "ping passes" }, DatabaseEnabled = true,
@@ -376,14 +382,40 @@ internal static class MonitoringVerification
             MethodInfo updateCard = typeof(MainForm).GetMethod("UpdateCard", Instance);
             result.ServerId = entry.Id;
             result.CheckedAt = DateTime.Now;
-            for (int sample = 0; sample < 50; sample++)
+            updateCard.Invoke(form, new object[] { result });
+            assert(card.StatusText == "ปกติ", "Compact cards use the requested normal status when all enabled checks pass");
+            result.Database.Success = false;
+            updateCard.Invoke(form, new object[] { result });
+            assert(card.StatusText == "มีปัญหา", "Compact cards show a problem when Ping passes but SQL fails");
+            result.Ping.Success = false;
+            updateCard.Invoke(form, new object[] { result });
+            assert(card.StatusText == "เชื่อมต่อไม่ได้", "Compact cards show disconnected when both checks fail");
+            int fixtureIndex = 0;
+            var fixtureResults = (Dictionary<string, ServerResult>)typeof(MainForm).GetField("results", Instance).GetValue(form);
+            MethodInfo updateRow = typeof(MainForm).GetMethod("UpdateRow", Instance);
+            foreach (ServerEntry fixture in configuration.Servers)
             {
-                result.Ping.Milliseconds = sample;
-                updateCard.Invoke(form, new object[] { result });
+                var fixtureResult = new ServerResult
+                {
+                    ServerId = fixture.Id, CheckedAt = DateTime.Now,
+                    Ping = new ProbeResult { Success = fixtureIndex % 9 != 7, Message = "UI fixture" },
+                    DatabaseEnabled = fixtureIndex % 9 == 4,
+                    Database = new ProbeResult { Success = false, Message = "UI fixture" }
+                };
+                fixtureResults[fixture.Id] = fixtureResult;
+                updateCard.Invoke(form, new object[] { fixtureResult });
+                updateRow.Invoke(form, new object[] { grid.Rows[fixtureIndex], fixtureResult });
+                fixtureIndex++;
             }
-            var histories = (Dictionary<string, List<long?>>)typeof(MainForm).GetField("histories", Instance).GetValue(form);
-            assert(histories[entry.Id].Count == 40 && histories[entry.Id][0] == 10 && histories[entry.Id][39] == 49,
-                "Dashboard history retains only the latest 40 actual supplied results in order");
+            typeof(MainForm).GetMethod("UpdateTotals", Instance).Invoke(form, null);
+            Capture(form, Path.Combine(root, "compact-dashboard.png"));
+            form.ClientSize = new Size(1900, 960);
+            Application.DoEvents();
+            assert(cards.Controls.OfType<ServerCard>().Select(item => item.Left).Distinct().Count() >= 9,
+                "Widening the dashboard adds columns instead of inflating cards or limiting them to four columns");
+            Capture(form, Path.Combine(root, "compact-dashboard-wide.png"));
+            showDashboard.Invoke(form, new object[] { false });
+            Capture(form, Path.Combine(root, "listing-wide.png"));
             form.Close();
         }
     }

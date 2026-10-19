@@ -1,6 +1,6 @@
 # FKP Server Monitor
 
-A Thai Windows dashboard with dark server cards, actual ping latency graphs, optional SQL Server connection checks, and configurable Outlook/ntfy outage and recovery alerts. Basic entries still need only a name and IP/hostname. No report export or generic TCP-port setup.
+A Thai Windows dashboard with compact CCTV-style server cards showing names and status, optional SQL Server connection checks, and configurable Outlook/ntfy outage and recovery alerts. Basic entries still need only a name and IP/hostname. No report export or generic TCP-port setup.
 
 ## Run
 
@@ -16,11 +16,11 @@ For a standard installation, open `Program/FKPServerMonitor-Setup.exe`. It defau
 
 One ICMP echo request is sent per server per cycle, using the same protocol as ordinary Windows ping. Automatic checking is off at launch. Enabling it checks immediately, then waits the configured interval after each cycle finishes. Cycles never overlap. Search filters the view; “check all” still checks the entire list.
 
-## Dashboard and alerts (1.8)
+## Compact dashboard and alerts (1.8.1)
 
-Use the top menu to switch cards/list or open notification settings. SQL monitoring is optional per server, with SQL username/password, encrypted connections and a read-only SELECT 1 check. Outlook uses Microsoft Graph delegated sign-in with an owner-provided public-client application registration; it does not reuse an Outlook desktop profile. ntfy uses a server, topic and optional access token. Both start disabled. Keep the app open and automatic monitoring enabled for continuous alerts. Passwords/tokens are DPAPI-protected to the current Windows profile; re-enter them on another machine/profile.
+Use the compact top bar to switch cards/list or open notification settings. Small cards show only the server name and normal/problem/disconnected state; full IP, SQL and response-time details remain in Listing. Widening the window fits additional columns. SQL monitoring is optional per server, with SQL username/password, encrypted connections and a read-only SELECT 1 check. Outlook uses Microsoft Graph delegated sign-in with an owner-provided public-client application registration; it does not reuse an Outlook desktop profile. ntfy uses a server, topic and optional access token. Both start disabled. Keep the app open and automatic monitoring enabled for continuous alerts. Passwords/tokens are DPAPI-protected to the current Windows profile; re-enter them on another machine/profile.
 
-See [current data flow and changed functions](docs/DASHBOARD_1.8.md), [Thai account setup](docs/USAGE.th.md), and [1.8 verification](docs/DASHBOARD_1.8_VERIFICATION.md).
+See [compact dashboard changes and verification](docs/COMPACT_DASHBOARD.md), [monitoring data flow](docs/DASHBOARD_1.8.md), [Thai account setup](docs/USAGE.th.md), and [1.8 verification](docs/DASHBOARD_1.8_VERIFICATION.md).
 
 ## Project layout
 

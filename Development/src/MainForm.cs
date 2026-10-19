@@ -56,33 +56,40 @@ namespace ServerBotTracker
             FormClosed += delegate { timer.Dispose(); };
         }
 
-        private void BuildLayout()
+                private void BuildLayout()
         {
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(24, 16, 24, 14), ColumnCount = 1, RowCount = 8, BackColor = DashboardStyle.Background };
-            foreach (int height in new[] { 48, 92, 94, 48, 48 }) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill, Padding = new Padding(16, 10, 16, 10),
+                ColumnCount = 1, RowCount = 7, BackColor = DashboardStyle.Background
+            };
+            foreach (int height in new[] { 48, 46, 42, 42 })
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
             layout.Controls.Add(BuildNavigation(), 0, 0);
-            var heading = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
-            PictureBox logo = Branding.CreateLogoBox(new Size(62, 64)); logo.Location = new Point(0, 6); heading.Controls.Add(logo);
-            heading.Controls.Add(new Label { Name = "ProductHeading", Text = ProductIdentity.DisplayName, Font = new Font("Tahoma", 23F, FontStyle.Bold), ForeColor = DashboardStyle.Ink, AutoSize = true, Location = new Point(77, 7) });
-            heading.Controls.Add(new Label { Text = "ติดตามสถานะ Ping และฐานข้อมูล SQL Server", ForeColor = DashboardStyle.Muted, AutoSize = true, Location = new Point(80, 53) });
-            layout.Controls.Add(heading, 0, 1);
-            layout.Controls.Add(BuildSummary(), 0, 2);
-            layout.Controls.Add(BuildToolbar(), 0, 3);
-            layout.Controls.Add(BuildSettings(), 0, 4);
-            BuildGrid(); grid.Visible = false;
-            var content = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
-            content.Controls.Add(grid); content.Controls.Add(cards); cards.BringToFront();
+            layout.Controls.Add(BuildSummary(), 0, 1);
+            layout.Controls.Add(BuildToolbar(), 0, 2);
+            layout.Controls.Add(BuildSettings(), 0, 3);
+            BuildGrid();
+            grid.Visible = false;
+            var content = new Panel { Name = "MonitoringArea", Dock = DockStyle.Fill, Margin = Padding.Empty };
+            content.Controls.Add(grid);
+            content.Controls.Add(cards);
+            cards.BringToFront();
             cards.SizeChanged += delegate { ResizeCards(); };
-            layout.Controls.Add(content, 0, 5);
-            progress.Dock = DockStyle.Fill; progress.TextAlign = ContentAlignment.MiddleLeft; progress.ForeColor = DashboardStyle.Ink;
-            totals.Dock = DockStyle.Fill; totals.ForeColor = DashboardStyle.Muted;
-            layout.Controls.Add(progress, 0, 6); layout.Controls.Add(totals, 0, 7);
+            layout.Controls.Add(content, 0, 4);
+            progress.Dock = DockStyle.Fill;
+            progress.TextAlign = ContentAlignment.MiddleLeft;
+            progress.ForeColor = DashboardStyle.Ink;
+            totals.Dock = DockStyle.Fill;
+            totals.ForeColor = DashboardStyle.Muted;
+            layout.Controls.Add(progress, 0, 5);
+            layout.Controls.Add(totals, 0, 6);
             Controls.Add(layout);
         }
-        private FlowLayoutPanel BuildToolbar()
+private FlowLayoutPanel BuildToolbar()
         {
             var toolbar = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = Padding.Empty };
             AddEditButton(toolbar, "เพิ่มเซิร์ฟเวอร์", AddServer);
@@ -237,12 +244,12 @@ namespace ServerBotTracker
             int warning = results.Values.Count(result => result.Health == "warning");
             int[] counts = { configuration.Servers.Count, passed, warning, failed };
             for (int index = 0; index < counts.Length; index++) if (summaryValues[index] != null) summaryValues[index].Text = counts[index].ToString(CultureInfo.InvariantCulture);
-            totals.Text = String.Format("ทั้งหมด {0}     ผ่าน {1}     ไม่ผ่าน {2}     ยังไม่ตรวจ {3}     แสดง {4}", configuration.Servers.Count, passed, failed, configuration.Servers.Count - results.Count, grid.Rows.Count);
+            totals.Text = String.Format("ทั้งหมด {0}     ปกติ {1}     มีปัญหา {2}     เชื่อมต่อไม่ได้ {3}     ยังไม่ตรวจ {4}     แสดง {5}", configuration.Servers.Count, passed, warning, failed, configuration.Servers.Count - results.Count, grid.Rows.Count);
         }
 
         private void ShowSelectedDetails()
         {
-            if (busy || grid.SelectedRows.Count != 1) return;
+            if (busy || cards.Visible || grid.SelectedRows.Count != 1) return;
             string id = grid.SelectedRows[0].Tag as string;
             ServerResult result;
             if (id != null && results.TryGetValue(id, out result))
@@ -391,7 +398,6 @@ namespace ServerBotTracker
                     results.Remove(entry.Id);
                     alertTracker.Forget(entry.Id);
                     databaseAlertTracker.Forget(entry.Id);
-                    histories.Remove(entry.Id);
                     RenderRows();
                 }
             }
@@ -411,7 +417,6 @@ namespace ServerBotTracker
                     results.Remove(id);
                     alertTracker.Forget(id);
                     databaseAlertTracker.Forget(id);
-                    histories.Remove(id);
                 }
                 RenderRows();
             }

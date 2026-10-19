@@ -2,7 +2,11 @@
 
 The current repository uses Program, Development and Archive. See [folder layout and build data flow](FOLDER_LAYOUT.md) for source, packaging, local verification and archived-evidence paths. Production C# functions are unchanged by the folder reorganization.
 
-## Current 1.8 extension
+## Current presentation (1.8.1)
+
+Small CCTV-style cards now render only the name and health state. The separate Listing view retains full details. Chart rendering and its unused sample history have been removed; monitoring, independent database checks, alerts and installation/update behavior are retained. See [compact dashboard file/function map](COMPACT_DASHBOARD.md).
+
+## Monitoring extension (1.8)
 
 The owner has now explicitly extended the original ping-only scope with a dark card dashboard, optional independent SQL Server authentication checks, and configurable Outlook/ntfy health alerts. The complete current flow and file/function map are in [DASHBOARD_1.8.md](DASHBOARD_1.8.md). The following sections describe the retained baseline; references to the initial ping-only contract apply to versions before 1.8. Schema 3 now reads versions 1/2 in memory and stores optional SQL settings. The installer, updater, elevation and removal architecture below remains in use.
 

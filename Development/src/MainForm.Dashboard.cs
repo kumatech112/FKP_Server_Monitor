@@ -10,23 +10,38 @@ namespace ServerBotTracker
     {
         private readonly FlowLayoutPanel cards = new FlowLayoutPanel { Name = "ServerCards", Dock = DockStyle.Fill, AutoScroll = true, WrapContents = true, Margin = Padding.Empty };
         private readonly Dictionary<string, ServerCard> cardViews = new Dictionary<string, ServerCard>();
-        private readonly Dictionary<string, List<long?>> histories = new Dictionary<string, List<long?>>();
         private readonly Label[] summaryValues = new Label[4];
         private readonly Button dashboardView = Theme.Button("แดชบอร์ด", true);
         private readonly Button listView = Theme.Button("รายการเซิร์ฟเวอร์", false);
         private readonly Button deliverySettingsButton = Theme.Button("ตั้งค่าการแจ้งเตือน", false);
 
-        private FlowLayoutPanel BuildNavigation()
+        private Control BuildNavigation()
         {
-            var navigation = new FlowLayoutPanel { Name = "TopMenu", Dock = DockStyle.Fill, WrapContents = false, Padding = new Padding(0, 3, 0, 0), Margin = Padding.Empty };
+            var bar = new TableLayoutPanel { Name = "TopBar", Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
+            bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 285));
+            bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            var identity = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
+            PictureBox logo = Branding.CreateLogoBox(new Size(32, 34));
+            logo.Location = new Point(0, 3);
+            identity.Controls.Add(logo);
+            identity.Controls.Add(new Label
+            {
+                Name = "ProductHeading", Text = ProductIdentity.DisplayName,
+                Font = new Font("Tahoma", 13F, FontStyle.Bold), ForeColor = DashboardStyle.Ink,
+                AutoSize = true, Location = new Point(40, 9)
+            });
+            bar.Controls.Add(identity, 0, 0);
+            var navigation = new FlowLayoutPanel { Name = "TopMenu", Dock = DockStyle.Fill, WrapContents = false, AutoScroll = true, Padding = new Padding(0, 3, 0, 0), Margin = Padding.Empty };
             foreach (Button button in new[] { dashboardView, listView, notificationButton, deliverySettingsButton, updateButton })
             {
-                DashboardStyle.StyleButton(button, button == dashboardView); navigation.Controls.Add(button);
+                DashboardStyle.StyleButton(button, button == dashboardView);
+                navigation.Controls.Add(button);
             }
             dashboardView.Click += delegate { ShowDashboard(true); };
             listView.Click += delegate { ShowDashboard(false); };
             deliverySettingsButton.Click += ShowAlertSettings;
-            return navigation;
+            bar.Controls.Add(navigation, 1, 0);
+            return bar;
         }
 
         private void ShowDashboard(bool showCards)
@@ -34,20 +49,23 @@ namespace ServerBotTracker
             cards.Visible = showCards; grid.Visible = !showCards;
             if (showCards) cards.BringToFront(); else grid.BringToFront();
             DashboardStyle.StyleButton(dashboardView, showCards); DashboardStyle.StyleButton(listView, !showCards);
+            if (showCards && !busy) progress.Text = "ภาพรวมสถานะเซิร์ฟเวอร์";
+            ShowSelectedDetails();
         }
 
         private Control BuildSummary()
         {
-            var summary = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1, Margin = new Padding(0, 0, 0, 12) };
-            string[] labels = { "เซิร์ฟเวอร์ทั้งหมด", "ใช้งานได้", "ต้องตรวจสอบ", "ไม่ตอบกลับ" };
+            var summary = new TableLayoutPanel { Name = "StatusSummary", Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1, Margin = new Padding(0, 0, 0, 6) };
+            string[] labels = { "ทั้งหมด", "ปกติ", "มีปัญหา", "เชื่อมต่อไม่ได้" };
             Color[] colors = { DashboardStyle.Blue, DashboardStyle.Green, DashboardStyle.Amber, DashboardStyle.Red };
             for (int index = 0; index < 4; index++)
             {
                 summary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
-                var tile = new Panel { Dock = DockStyle.Fill, BackColor = DashboardStyle.Surface, Margin = new Padding(0, 0, index == 3 ? 0 : 12, 0) };
-                summaryValues[index] = new Label { Text = "0", Font = new Font("Tahoma", 22F, FontStyle.Bold), ForeColor = colors[index], Location = new Point(16, 30), AutoSize = true };
-                tile.Controls.Add(new Label { Text = labels[index], ForeColor = DashboardStyle.Muted, Location = new Point(17, 10), AutoSize = true });
-                tile.Controls.Add(summaryValues[index]); summary.Controls.Add(tile, index, 0);
+                var tile = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, BackColor = DashboardStyle.Surface, Margin = new Padding(0, 0, index == 3 ? 0 : 8, 0) };
+                tile.Controls.Add(new Label { Text = labels[index], ForeColor = DashboardStyle.Muted, Margin = new Padding(12, 10, 6, 0), AutoSize = true });
+                summaryValues[index] = new Label { Text = "0", Font = new Font("Tahoma", 13F, FontStyle.Bold), ForeColor = colors[index], Margin = new Padding(0, 6, 0, 0), AutoSize = true };
+                tile.Controls.Add(summaryValues[index]);
+                summary.Controls.Add(tile, index, 0);
             }
             return summary;
         }
@@ -63,9 +81,7 @@ namespace ServerBotTracker
                 {
                     string id = (string)row.Tag;
                     ServerEntry server = configuration.Servers.First(item => item.Id == id);
-                    List<long?> history;
-                    if (!histories.TryGetValue(id, out history)) { history = new List<long?>(); histories[id] = history; }
-                    var card = new ServerCard(server, history);
+                    var card = new ServerCard(server);
                     ServerResult result; if (results.TryGetValue(id, out result)) card.UpdateResult(result);
                     card.Selected = row.Selected;
                     card.SelectedByUser += delegate(object sender, EventArgs args) { SelectCard((ServerCard)sender, false); };
@@ -73,7 +89,7 @@ namespace ServerBotTracker
                     cardViews[id] = card; cards.Controls.Add(card);
                 }
                 if (cardViews.Count == 0)
-                    cards.Controls.Add(new Label { Name = "EmptyDashboard", Text = configuration.Servers.Count == 0 ? "เพิ่มเซิร์ฟเวอร์เพื่อเริ่มติดตาม\nผล Ping และ SQL Server จะแสดงเป็นการ์ดในหน้านี้" : "ไม่พบรายการที่ตรงกับคำค้นหา", ForeColor = DashboardStyle.Muted, AutoSize = true, Margin = new Padding(20, 45, 0, 0) });
+                    cards.Controls.Add(new Label { Name = "EmptyDashboard", Text = configuration.Servers.Count == 0 ? "เพิ่มเซิร์ฟเวอร์เพื่อเริ่มติดตาม" : "ไม่พบรายการที่ตรงกับคำค้นหา", ForeColor = DashboardStyle.Muted, AutoSize = true, Margin = new Padding(12, 24, 0, 0) });
                 ResizeCards();
             }
             finally { cards.ResumeLayout(); }
@@ -100,20 +116,22 @@ namespace ServerBotTracker
 
         private void ResizeCards()
         {
-            int available = Math.Max(260, cards.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 2);
             float scale = DeviceDpi / 96f;
-            int columns = Math.Max(1, Math.Min(4, (int)(available / (290 * scale))));
-            int width = available / columns - 14;
-            foreach (ServerCard card in cardViews.Values) card.Size = new Size(width, (int)(236 * scale));
+            int gap = Math.Max(1, (int)(8 * scale));
+            int available = Math.Max(1, cards.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 2);
+            int columns = Math.Max(1, (int)(available / (192 * scale)));
+            int width = Math.Max(1, Math.Min((int)(230 * scale), available / columns - gap));
+            foreach (ServerCard card in cardViews.Values)
+            {
+                card.Margin = new Padding(0, 0, gap, gap);
+                card.Size = new Size(width, (int)(84 * scale));
+            }
         }
 
         private void UpdateCard(ServerResult result)
         {
-            List<long?> history;
-            if (!histories.TryGetValue(result.ServerId, out history)) { history = new List<long?>(); histories[result.ServerId] = history; }
-            history.Add(result.Ping != null && result.Ping.Success ? result.Ping.Milliseconds : null);
-            if (history.Count > 40) history.RemoveAt(0);
-            ServerCard card; if (cardViews.TryGetValue(result.ServerId, out card)) card.UpdateResult(result);
+            ServerCard card;
+            if (cardViews.TryGetValue(result.ServerId, out card)) card.UpdateResult(result);
         }
     }
 }

@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Notes = 'Dashboard cards with live ping history, optional SQL Server connection checks, and configurable Outlook and ntfy outage/recovery alerts. Existing server lists are preserved. Alert accounts can be configured later.')
+param([string]$Notes = 'Compact CCTV-style dashboard cards show only server names and health status. More cards fit on screen; detailed IP, SQL and response-time results remain available in Listing. Monitoring, Outlook and ntfy settings are preserved.')
 
 $ErrorActionPreference = 'Stop'
 $developmentRoot = Split-Path -Parent $PSScriptRoot
