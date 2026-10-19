@@ -10,9 +10,33 @@ namespace ServerBotTracker
 {
     public sealed class NetworkProbe
     {
+        private readonly IDatabaseProbe databaseProbe;
+
+        public NetworkProbe() : this(new DatabaseProbe()) { }
+
+        public NetworkProbe(IDatabaseProbe database)
+        {
+            if (database == null) throw new ArgumentNullException("database");
+            databaseProbe = database;
+        }
+
+        public async Task<ServerResult> CheckAsync(ServerEntry server, int timeoutMs, CancellationToken cancellation)
+        {
+            server.Validate();
+            Task<ServerResult> pingTask = CheckHostAsync(server, timeoutMs, cancellation);
+            bool enabled = server.Database != null && server.Database.Enabled;
+            Task<ProbeResult> databaseTask = enabled ? databaseProbe.CheckAsync(server, timeoutMs, cancellation) : Task.FromResult<ProbeResult>(null);
+            await Task.WhenAll(pingTask, databaseTask).ConfigureAwait(false);
+            ServerResult result = await pingTask.ConfigureAwait(false);
+            result.DatabaseEnabled = enabled;
+            result.Database = await databaseTask.ConfigureAwait(false);
+            result.CheckedAt = DateTime.Now;
+            return result;
+        }
+
         // One ICMP echo per server per cycle, using the same protocol as Windows ping.
         // DNS and the echo request each have a bounded wait.
-        public async Task<ServerResult> CheckAsync(ServerEntry server, int timeoutMs, CancellationToken cancellation)
+        private async Task<ServerResult> CheckHostAsync(ServerEntry server, int timeoutMs, CancellationToken cancellation)
         {
             server.Validate();
             cancellation.ThrowIfCancellationRequested();

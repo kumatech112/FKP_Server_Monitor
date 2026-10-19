@@ -30,7 +30,8 @@ try {
         ('/resource:' + (Join-Path $buildRoot 'server-tracker.png') + ',ServerBotTracker.Branding.Logo'),
         '/reference:System.dll', '/reference:System.Core.dll', '/reference:System.Drawing.dll',
         '/reference:System.Windows.Forms.dll', '/reference:System.Runtime.Serialization.dll',
-        '/reference:System.Net.Http.dll', '/reference:System.IO.Compression.dll', '/reference:System.IO.Compression.FileSystem.dll'
+        '/reference:System.Net.Http.dll', '/reference:System.IO.Compression.dll', '/reference:System.IO.Compression.FileSystem.dll',
+        '/reference:System.Data.dll', '/reference:System.Security.dll'
     )
     $arguments += @(Get-ChildItem -LiteralPath $buildRoot -Filter '*.cs' -File | ForEach-Object { $_.FullName })
     & $compilerPath @arguments

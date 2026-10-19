@@ -31,8 +31,8 @@ namespace ServerBotTracker
                 // Read the previous schema without changing IDs, names or hosts.
                 // Removed port/mode fields are ignored by the JSON serializer.
                 // The original file is untouched until an ordinary user save.
-                if (configuration.Version == 1)
-                    configuration.Version = 2;
+                if (configuration.Version == 1 || configuration.Version == 2)
+                    configuration.Version = 3;
                 configuration.Validate();
                 return configuration;
             }

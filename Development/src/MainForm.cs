@@ -40,12 +40,12 @@ namespace ServerBotTracker
             store = configurationStore;
             configuration = store.Load();
             Branding.ApplyTo(this);
-            Text = "ตรวจสอบเซิร์ฟเวอร์ | FKP Server Monitor";
+            Text = ProductIdentity.DisplayName;
             Font = new Font("Tahoma", 10F);
-            ForeColor = Theme.Ink;
-            BackColor = Theme.Background;
-            ClientSize = new Size(1120, 700);
-            MinimumSize = new Size(980, 600);
+            ForeColor = DashboardStyle.Ink;
+            BackColor = DashboardStyle.Background;
+            ClientSize = new Size(1260, 820);
+            MinimumSize = new Size(1080, 700);
             StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
             BuildLayout();
@@ -58,43 +58,30 @@ namespace ServerBotTracker
 
         private void BuildLayout()
         {
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(24, 20, 24, 16), ColumnCount = 1, RowCount = 7 };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(24, 16, 24, 14), ColumnCount = 1, RowCount = 8, BackColor = DashboardStyle.Background };
+            foreach (int height in new[] { 48, 92, 94, 48, 48 }) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
-            var heading = new Panel { Dock = DockStyle.Fill };
-            PictureBox logo = Branding.CreateLogoBox(new Size(62, 64));
-            logo.Location = new Point(0, 0);
-            heading.Controls.Add(logo);
-            heading.Controls.Add(new Label { Text = "ตรวจสอบเซิร์ฟเวอร์", Font = new Font("Tahoma", 22F, FontStyle.Bold), ForeColor = Theme.Ink, AutoSize = true, Location = new Point(76, 0) });
-            heading.Controls.Add(new Label { Text = "ตรวจด้วย Ping • ดูผลผ่าน / ไม่ผ่านในหน้าจอเดียว", AutoSize = true, ForeColor = Color.FromArgb(93, 111, 136), Location = new Point(78, 48) });
-            BuildNotificationButtons(heading);
-            layout.Controls.Add(heading, 0, 0);
-            var summary = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(14, 10, 14, 10), Margin = new Padding(0, 0, 0, 10) };
-            totals.Dock = DockStyle.Fill;
-            totals.Font = new Font("Tahoma", 11F, FontStyle.Bold);
-            totals.TextAlign = ContentAlignment.MiddleLeft;
-            summary.Controls.Add(totals);
-            layout.Controls.Add(summary, 0, 1);
-            layout.Controls.Add(BuildToolbar(), 0, 2);
-            layout.Controls.Add(BuildSettings(), 0, 3);
-            BuildGrid();
-            layout.Controls.Add(grid, 0, 4);
-            progress.Dock = DockStyle.Fill;
-            progress.TextAlign = ContentAlignment.MiddleLeft;
-            layout.Controls.Add(progress, 0, 5);
-            var explanation = Theme.Label("ผ่าน = ตอบกลับ Ping • ไม่ผ่าน = ไม่ได้รับคำตอบ • ดูเวลาตรวจล่าสุดประกอบ\nเลือกแถวเพื่อดูรายละเอียด • Ctrl / Shift เลือกหลายรายการ");
-            explanation.Dock = DockStyle.Fill;
-            explanation.ForeColor = Color.FromArgb(93, 111, 136);
-            layout.Controls.Add(explanation, 0, 6);
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
+            layout.Controls.Add(BuildNavigation(), 0, 0);
+            var heading = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
+            PictureBox logo = Branding.CreateLogoBox(new Size(62, 64)); logo.Location = new Point(0, 6); heading.Controls.Add(logo);
+            heading.Controls.Add(new Label { Name = "ProductHeading", Text = ProductIdentity.DisplayName, Font = new Font("Tahoma", 23F, FontStyle.Bold), ForeColor = DashboardStyle.Ink, AutoSize = true, Location = new Point(77, 7) });
+            heading.Controls.Add(new Label { Text = "ติดตามสถานะ Ping และฐานข้อมูล SQL Server", ForeColor = DashboardStyle.Muted, AutoSize = true, Location = new Point(80, 53) });
+            layout.Controls.Add(heading, 0, 1);
+            layout.Controls.Add(BuildSummary(), 0, 2);
+            layout.Controls.Add(BuildToolbar(), 0, 3);
+            layout.Controls.Add(BuildSettings(), 0, 4);
+            BuildGrid(); grid.Visible = false;
+            var content = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
+            content.Controls.Add(grid); content.Controls.Add(cards); cards.BringToFront();
+            cards.SizeChanged += delegate { ResizeCards(); };
+            layout.Controls.Add(content, 0, 5);
+            progress.Dock = DockStyle.Fill; progress.TextAlign = ContentAlignment.MiddleLeft; progress.ForeColor = DashboardStyle.Ink;
+            totals.Dock = DockStyle.Fill; totals.ForeColor = DashboardStyle.Muted;
+            layout.Controls.Add(progress, 0, 6); layout.Controls.Add(totals, 0, 7);
             Controls.Add(layout);
         }
-
         private FlowLayoutPanel BuildToolbar()
         {
             var toolbar = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = Padding.Empty };
@@ -112,6 +99,7 @@ namespace ServerBotTracker
             toolbar.Controls.Add(checkAll);
             toolbar.Controls.Add(checkSelected);
             toolbar.Controls.Add(stop);
+            foreach (Button button in toolbar.Controls.OfType<Button>()) DashboardStyle.StyleButton(button, button == checkAll);
             return toolbar;
         }
 
@@ -144,13 +132,18 @@ namespace ServerBotTracker
                 if (automatic.Checked && !busy)
                     await RunChecksAsync(false);
             };
+            foreach (Control input in settings.Controls)
+            {
+                input.ForeColor = input is Label ? DashboardStyle.Muted : DashboardStyle.Ink;
+                input.BackColor = input is TextBox || input is NumericUpDown ? DashboardStyle.Surface : DashboardStyle.Background;
+            }
             return settings;
         }
 
         private void BuildGrid()
         {
             grid.Dock = DockStyle.Fill;
-            grid.BackgroundColor = Color.White;
+            grid.BackgroundColor = DashboardStyle.Surface;
             grid.BorderStyle = BorderStyle.None;
             grid.ReadOnly = true;
             grid.AllowUserToAddRows = false;
@@ -161,24 +154,27 @@ namespace ServerBotTracker
             grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             grid.EnableHeadersVisualStyles = false;
-            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(231, 238, 249);
-            grid.ColumnHeadersDefaultCellStyle.ForeColor = Theme.Ink;
+            grid.ColumnHeadersDefaultCellStyle.BackColor = DashboardStyle.Border;
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = DashboardStyle.Ink;
             grid.ColumnHeadersDefaultCellStyle.Font = new Font("Tahoma", 10F, FontStyle.Bold);
             grid.ColumnHeadersHeight = 42;
             grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             grid.RowTemplate.Height = 40;
-            grid.GridColor = Color.FromArgb(232, 237, 245);
-            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(219, 234, 254);
-            grid.DefaultCellStyle.SelectionForeColor = Theme.Ink;
+            grid.GridColor = DashboardStyle.Border;
+            grid.DefaultCellStyle.BackColor = DashboardStyle.Surface;
+            grid.DefaultCellStyle.ForeColor = DashboardStyle.Ink;
+            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(42, 66, 89);
+            grid.DefaultCellStyle.SelectionForeColor = DashboardStyle.Ink;
             grid.DefaultCellStyle.Padding = new Padding(6, 0, 6, 0);
-            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 253);
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(29, 34, 39);
             AddColumn("ServerName", "ชื่อเซิร์ฟเวอร์", 200);
             AddColumn("Host", "IP / โฮสต์", 220);
-            AddColumn("Status", "ผล Ping", 115);
+            AddColumn("Status", "สถานะรวม", 145);
+            AddColumn("Database", "SQL Server", 170);
             AddColumn("Latency", "เวลาตอบกลับ (ms)", 160);
             AddColumn("CheckedAt", "ตรวจล่าสุด", 180);
             grid.CellDoubleClick += delegate(object sender, DataGridViewCellEventArgs args) { if (args.RowIndex >= 0 && !busy) EditServer(sender, EventArgs.Empty); };
-            grid.SelectionChanged += delegate { ShowSelectedDetails(); };
+            grid.SelectionChanged += delegate { SyncCardSelections(); ShowSelectedDetails(); };
         }
 
         private void AddColumn(string name, string title, int width)
@@ -196,7 +192,7 @@ namespace ServerBotTracker
             {
                 if (term.Length > 0 && server.Name.IndexOf(term, StringComparison.OrdinalIgnoreCase) < 0 && server.Host.IndexOf(term, StringComparison.OrdinalIgnoreCase) < 0)
                     continue;
-                int index = grid.Rows.Add(server.Name, server.Host, "ยังไม่ตรวจ", "—", "—");
+                int index = grid.Rows.Add(server.Name, server.Host, "ยังไม่ตรวจ", server.Database != null && server.Database.Enabled ? "รอตรวจ" : "ไม่ได้เปิดตรวจ", "—", "—");
                 DataGridViewRow row = grid.Rows[index];
                 row.Tag = server.Id;
                 visibleRows[server.Id] = row;
@@ -206,6 +202,7 @@ namespace ServerBotTracker
             grid.ClearSelection();
             foreach (DataGridViewRow row in grid.Rows)
                 row.Selected = selection.Contains((string)row.Tag);
+            RenderCards();
             UpdateTotals();
         }
 
@@ -218,11 +215,12 @@ namespace ServerBotTracker
         {
             row.Cells["Latency"].Value = result.Ping != null && result.Ping.Milliseconds.HasValue ? result.Ping.Milliseconds.Value.ToString(CultureInfo.InvariantCulture) : "—";
             row.Cells["Status"].Value = result.Summary;
+            row.Cells["Database"].Value = result.DatabaseEnabled ? ProbeText(result.Database) : "ไม่ได้เปิดตรวจ";
             row.Cells["CheckedAt"].Value = result.CheckedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
-            Color color = result.Summary == "ผ่าน" ? Theme.Green : Theme.Red;
+            Color color = DashboardStyle.HealthColor(result);
             row.Cells["Status"].Style.ForeColor = color;
             row.Cells["Status"].Style.SelectionForeColor = color;
-            string detail = "IP ที่ตรวจ: " + result.Address + " | Ping: " + ProbeText(result.Ping);
+            string detail = "IP ที่ตรวจ: " + result.Address + " | Ping: " + ProbeText(result.Ping) + (result.DatabaseEnabled ? " | SQL: " + ProbeText(result.Database) : "");
             foreach (DataGridViewCell cell in row.Cells) cell.ToolTipText = detail;
         }
 
@@ -234,8 +232,11 @@ namespace ServerBotTracker
 
         private void UpdateTotals()
         {
-            int passed = results.Values.Count(result => result.Summary == "ผ่าน");
-            int failed = results.Values.Count(result => result.Summary == "ไม่ผ่าน");
+            int passed = results.Values.Count(result => result.Health == "healthy");
+            int failed = results.Values.Count(result => result.Health == "down");
+            int warning = results.Values.Count(result => result.Health == "warning");
+            int[] counts = { configuration.Servers.Count, passed, warning, failed };
+            for (int index = 0; index < counts.Length; index++) if (summaryValues[index] != null) summaryValues[index].Text = counts[index].ToString(CultureInfo.InvariantCulture);
             totals.Text = String.Format("ทั้งหมด {0}     ผ่าน {1}     ไม่ผ่าน {2}     ยังไม่ตรวจ {3}     แสดง {4}", configuration.Servers.Count, passed, failed, configuration.Servers.Count - results.Count, grid.Rows.Count);
         }
 
@@ -245,7 +246,7 @@ namespace ServerBotTracker
             string id = grid.SelectedRows[0].Tag as string;
             ServerResult result;
             if (id != null && results.TryGetValue(id, out result))
-                progress.Text = "IP ที่ตรวจ: " + result.Address + "   |   Ping: " + ProbeText(result.Ping);
+                progress.Text = "IP ที่ตรวจ: " + result.Address + "   |   Ping: " + ProbeText(result.Ping) + (result.DatabaseEnabled ? "   |   SQL: " + ProbeText(result.Database) : "");
         }
 
         public async Task RunChecksAsync(bool selectedOnly)
@@ -278,6 +279,7 @@ namespace ServerBotTracker
                             ServerResult result = await probe.CheckAsync(server, timeoutMs, cancellation);
                             if (closing) return;
                             results[server.Id] = result;
+                            UpdateCard(result);
                             PublishServerAlert(server, result);
                             DataGridViewRow row;
                             if (visibleRows.TryGetValue(server.Id, out row)) UpdateRow(row, result);
@@ -388,6 +390,8 @@ namespace ServerBotTracker
                 {
                     results.Remove(entry.Id);
                     alertTracker.Forget(entry.Id);
+                    databaseAlertTracker.Forget(entry.Id);
+                    histories.Remove(entry.Id);
                     RenderRows();
                 }
             }
@@ -406,6 +410,8 @@ namespace ServerBotTracker
                 {
                     results.Remove(id);
                     alertTracker.Forget(id);
+                    databaseAlertTracker.Forget(id);
+                    histories.Remove(id);
                 }
                 RenderRows();
             }
@@ -437,6 +443,7 @@ namespace ServerBotTracker
             closing = true;
             timer.Stop();
             if (currentCheck != null) currentCheck.Cancel();
+            deliveryCancellation.Cancel();
         }
     }
 }

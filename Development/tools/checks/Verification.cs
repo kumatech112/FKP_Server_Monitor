@@ -32,6 +32,7 @@ internal static class Verification
             VerifyValidation();
             VerifyLegacyConfiguration();
             VerifyDeadline();
+            MonitoringVerification.Run(root, Assert);
             UpdatesVerification.Run(root, Assert);
             SetupVerification.Run(root, Assert);
             VerifyNetworkAndGui();
@@ -99,7 +100,7 @@ internal static class Verification
         File.WriteAllText(path, legacy, new UTF8Encoding(false));
         var store = new ConfigurationStore(path);
         AppConfiguration migrated = store.Load();
-        Assert(migrated.Version == 2 && migrated.Servers.Count == 2 && migrated.Servers[0].Id == "old-one" && migrated.Servers[0].Name == "รายการเดิมหนึ่ง" && migrated.Servers[1].Id == "old-two" && migrated.Servers.All(server => server.Host == "127.0.0.1"), "Legacy settings retain all IDs, Thai names and duplicate-host entries");
+        Assert(migrated.Version == 3 && migrated.Servers.Count == 2 && migrated.Servers[0].Id == "old-one" && migrated.Servers[0].Name == "รายการเดิมหนึ่ง" && migrated.Servers[1].Id == "old-two" && migrated.Servers.All(server => server.Host == "127.0.0.1"), "Legacy settings retain all IDs, Thai names and duplicate-host entries");
         Assert(File.ReadAllText(path) == legacy, "Loading legacy settings does not rewrite the original file");
         store.Save(migrated);
         string saved = File.ReadAllText(path);
@@ -158,15 +159,16 @@ internal static class Verification
                     WaitForUi(checks);
                     var grid = (DataGridView)form.Controls.Find("ServerGrid", true)[0];
                     Assert(grid.Rows.Count == 3 && (string)grid.Rows[0].Cells["Status"].Value == "ผ่าน" && (string)grid.Rows[1].Cells["Status"].Value == "ผ่าน" && (string)grid.Rows[2].Cells["Status"].Value == "ไม่ผ่าน", "Built dashboard renders green pass and red fail for ping results");
-                    Assert(grid.Columns.Count == 5 && !grid.Columns.Contains("Port") && !grid.Columns.Contains("Mode") && !grid.Columns.Contains("Tcp") && !AllControls(form).OfType<Button>().Any(button => button.Text.Contains("CSV")), "Dashboard has no port, check-method, TCP or export controls");
-                    Assert(form.Text.Contains("ตรวจสอบเซิร์ฟเวอร์"), "Thai desktop window title");
+                    Assert(grid.Columns.Count == 6 && grid.Columns.Contains("Database") && !grid.Columns.Contains("Port") && !grid.Columns.Contains("Mode") && !grid.Columns.Contains("Tcp") && !AllControls(form).OfType<Button>().Any(button => button.Text.Contains("CSV")), "Dashboard retains ping and adds a separate SQL status without generic TCP ports or CSV export");
+                    Assert(form.Text == "FKP Server Monitor" && form.Controls.Find("ProductHeading", true)[0].Text == "FKP Server Monitor", "Window and dashboard heading use the product name without the former Thai heading");
                     var tray = (NotifyIcon)typeof(MainForm).GetField("tray", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(form);
-                    Assert(form.Icon != null && tray.Icon != null && form.Controls.Find("ProductLogo", true).Length == 1 && form.BackColor == Color.FromArgb(243, 246, 251), "Dashboard and tray use product branding while preserving the existing colors");
+                    Assert(form.Icon != null && tray.Icon != null && form.Controls.Find("ProductLogo", true).Length == 1 && form.BackColor == Color.FromArgb(20, 23, 27), "Dashboard and tray retain robot branding with the requested charcoal card theme");
                     using (var image = new Bitmap(form.Width, form.Height))
                     {
                         form.DrawToBitmap(image, new Rectangle(0, 0, image.Width, image.Height));
                         image.Save(Path.Combine(root, "gui.png"));
                     }
+                    Assert(form.Controls.Find("TopMenu", true).Length == 1 && form.Controls.Find("ServerCards", true)[0].Controls.OfType<ServerCard>().Count() == 3, "The real dashboard renders server cards and a navigation menu above them");
                     grid.ClearSelection();
                     grid.Rows[0].Selected = true;
                     string unchanged = Convert.ToString(grid.Rows[1].Cells["CheckedAt"].Value);
@@ -305,7 +307,7 @@ internal static class Verification
                     if (dialog == null) throw new InvalidOperationException("Add dialog did not open");
                     ((TextBox)dialog.Controls.Find("ServerNameInput", true)[0]).Text = "เพิ่มจากหน้าจอ";
                     ((TextBox)dialog.Controls.Find("HostInput", true)[0]).Text = "127.0.0.1";
-                    Assert(!AllControls(dialog).OfType<NumericUpDown>().Any() && !AllControls(dialog).OfType<ComboBox>().Any(), "Single-server dialog asks only for name and host");
+                    Assert(!AllControls(dialog).OfType<NumericUpDown>().Any() && !AllControls(dialog).OfType<ComboBox>().Any(), "Basic server editing remains simple with an optional separate SQL tab");
                     using (var image = new Bitmap(dialog.Width, dialog.Height))
                     {
                         dialog.DrawToBitmap(image, new Rectangle(0, 0, image.Width, image.Height));

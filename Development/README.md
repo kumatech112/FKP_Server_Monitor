@@ -1,6 +1,6 @@
 # FKP Server Monitor
 
-A Thai Windows dashboard for checking multiple servers with ping. Add a name and IP/hostname, then read the green **ผ่าน** or red **ไม่ผ่าน** result. No service-port setup or report export.
+A Thai Windows dashboard with dark server cards, actual ping latency graphs, optional SQL Server connection checks, and configurable Outlook/ntfy outage and recovery alerts. Basic entries still need only a name and IP/hostname. No report export or generic TCP-port setup.
 
 ## Run
 
@@ -15,6 +15,12 @@ For a standard installation, open `Program/FKPServerMonitor-Setup.exe`. It defau
 - Configure a 500–15,000 ms timeout and a 5–3,600 second interval.
 
 One ICMP echo request is sent per server per cycle, using the same protocol as ordinary Windows ping. Automatic checking is off at launch. Enabling it checks immediately, then waits the configured interval after each cycle finishes. Cycles never overlap. Search filters the view; “check all” still checks the entire list.
+
+## Dashboard and alerts (1.8)
+
+Use the top menu to switch cards/list or open notification settings. SQL monitoring is optional per server, with SQL username/password, encrypted connections and a read-only SELECT 1 check. Outlook uses Microsoft Graph delegated sign-in with an owner-provided public-client application registration; it does not reuse an Outlook desktop profile. ntfy uses a server, topic and optional access token. Both start disabled. Keep the app open and automatic monitoring enabled for continuous alerts. Passwords/tokens are DPAPI-protected to the current Windows profile; re-enter them on another machine/profile.
+
+See [current data flow and changed functions](docs/DASHBOARD_1.8.md), [Thai account setup](docs/USAGE.th.md), and [1.8 verification](docs/DASHBOARD_1.8_VERIFICATION.md).
 
 ## Project layout
 
@@ -45,7 +51,7 @@ The public source and distribution repository is `kumatech112/FKP_Server_Monitor
 - Installation waits until the app closes. “อัปเดตและเริ่มใหม่” installs immediately after closing and restarts the app; active automatic ping monitoring resumes.
 - Existing program files are backed up and a failed replacement rolls back the files already changed.
 - Public announcements appear once in a persistent inbox, with publish/expiry windows.
-- Two consecutive failed ping cycles trigger one local down alert. The next successful check triggers one recovery alert. Continued failures do not repeat the warning within the session.
+- Two consecutive failed ping or database cycles trigger one separate health alert. Enabled Outlook/ntfy channels deliver these health events independently; accounts can be configured later. The next successful check triggers one recovery alert. Continued failures do not repeat the warning within the session.
 - Notifications are retained in `notifications.json` beside the user's settings, with a 100-item history. A damaged inbox falls back to memory without replacing the original.
 - An unreachable release source never stops ping monitoring. Server lists and alert contents are not uploaded to the release channel.
 
@@ -55,7 +61,7 @@ Operator instructions: [Thai publishing guide](docs/RELEASES.th.md). A code comm
 
 ## Installation and removal (1.6)
 
-The supplied robot icon is embedded in the application, setup and uninstall EXEs, and appears in the dashboard, window/taskbar icons, tray and Start menu shortcut. Dialogs use the same product icon. The existing light/blue colors and ping-only layout remain.
+The supplied robot icon is embedded in the application, setup and uninstall EXEs, and appears in the dashboard, window/taskbar icons, tray and Start menu shortcut. Dialogs use the same product icon. The dashboard uses dark cards and a top navigation bar; the classic light/blue setup and removal wizard retains its existing appearance.
 
 Setup follows a classic wizard layout with blue robot artwork, white pages and standard Next/Back/Cancel buttons: welcome, **choose installation folder**, confirmation, progress and completion. Click **เรียกดู... (Browse)** and choose a drive or parent folder: Setup adds `FKP Server Monitor` and creates it during installation. Choosing D: gives `D:\FKP Server Monitor`. An existing product folder is retained without appending another copy. A typed full custom path is also supported; typing a drive root adds the product folder. Confirmation shows the final path before file writes. Setup remembers the machine installation path. A matching uninstall wizard opens from **Control Panel > Programs and Features > FKP Server Monitor > Uninstall/Change** or the installed **Uninstall.exe**. Both routes request administrator approval before changing a machine installation.
 
@@ -73,7 +79,7 @@ Direct launch remains fixed: double-clicking the installed `Uninstall.exe` opens
 
 Names, addresses and preferences are stored per Windows user at `%LOCALAPPDATA%\Kuma\ServerBotTracker\servers.json`. Atomic save retains the preceding version as `servers.json.bak`. Corrupt or unsupported settings are reported and preserved.
 
-Version 1.1 reads the previous version's saved lists without discarding IDs, names or addresses. Old port/method fields are ignored. Loading does not rewrite the file; the next normal save uses schema version 2 and backs up the original. Existing duplicate-host entries are preserved; bulk entry skips new duplicate hosts.
+Version 1.1 reads the previous version's saved lists without discarding IDs, names or addresses. Old port/method fields are ignored. Loading does not rewrite the file; the next normal save uses schema version 3 and backs up the original. Existing duplicate-host entries are preserved; bulk entry skips new duplicate hosts.
 
 Copy the release folder to distribute the app. Transfer settings separately, with the app closed, if the destination should use the same list. Results are memory-only and start as “ยังไม่ตรวจ” after each launch.
 
@@ -89,7 +95,7 @@ These commands change no machine execution-policy setting. The build uses Window
 
 ## Result meaning
 
-**ผ่าน** means an ICMP echo reply was received; **ไม่ผ่าน** means no successful reply was received, including DNS errors and timeouts. This dashboard measures ping reachability. A firewall blocking echo requests can produce a failed result even when a service is accessible.
+**ผ่าน** means an ICMP echo reply was received; **ไม่ผ่าน** means no successful reply was received, including DNS errors and timeouts. Ping measures ICMP reachability; optional SQL checks separately confirm login to the specified database and SELECT 1 execution. A disagreement produces a warning. Neither check proves complete application health. A firewall blocking echo requests can produce a failed result even when a service is accessible.
 
 DNS and ping each receive one timeout budget; hostname checks may take about twice the timeout, excluding queue wait. At most eight entries are checked concurrently. Hostnames use their first IPv4 address, or first returned address if no IPv4 is available. The chosen IP and detailed response appear in row tooltips/details.
 
@@ -99,6 +105,6 @@ See [Thai guide](docs/USAGE.th.md), [data flow and function index](docs/ARCHITEC
 
 ## Product rename (1.7)
 
-The app, installer, executable, default installation folder, shortcuts and Control Panel display name are now FKP Server Monitor. Existing custom installation paths are remembered. Server lists and inbox history keep their existing storage location. The GitHub repository URL and internal compatibility identifiers remain stable.
+The app, installer, executable, default installation folder, shortcuts and Control Panel display name are now FKP Server Monitor. Existing custom installation paths are remembered. Server lists and inbox history keep their existing storage location. The repository now uses FKP_Server_Monitor; internal compatibility identifiers and per-user data paths remain stable.
 
 The new updater uses update-fkp.json. The older update.json feed remains pinned to the compatible 1.6.0 package. Install the new Setup once to migrate from the former name. See [rename details and changed functions](docs/RENAME.md).

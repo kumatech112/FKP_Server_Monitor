@@ -2,6 +2,10 @@
 
 The current repository uses Program, Development and Archive. See [folder layout and build data flow](FOLDER_LAYOUT.md) for source, packaging, local verification and archived-evidence paths. Production C# functions are unchanged by the folder reorganization.
 
+## Current 1.8 extension
+
+The owner has now explicitly extended the original ping-only scope with a dark card dashboard, optional independent SQL Server authentication checks, and configurable Outlook/ntfy health alerts. The complete current flow and file/function map are in [DASHBOARD_1.8.md](DASHBOARD_1.8.md). The following sections describe the retained baseline; references to the initial ping-only contract apply to versions before 1.8. Schema 3 now reads versions 1/2 in memory and stores optional SQL settings. The installer, updater, elevation and removal architecture below remains in use.
+
 ## Initial inspection and scope
 
 The requested workspace was empty on 2026-10-09 and was not inside a Git repository. There was no existing application code, database, configuration, or packaging to refactor. This delivery creates an isolated Windows Forms application. It does not change other projects, install services, edit firewalls, or invoke command-line ping. Reachability checking still uses DNS and ICMP echo only. Version 1.2 adds separate HTTPS connections to a public GitHub release channel for program updates and announcements. Port/method configuration, TCP connections, partial-pass status and report export were removed at the user's request.

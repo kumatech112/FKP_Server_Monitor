@@ -32,6 +32,7 @@ namespace ServerBotTracker
             notificationButton.Click += ShowNotifications;
             updateButton.Click += ShowUpdateDetails;
             RefreshNotificationCount();
+            InitializeAlertDelivery(onlineServices);
             releaseChannel = new ReleaseChannel();
             trayIcon = Branding.CreateIcon();
             tray = new NotifyIcon { Icon = trayIcon, Text = "FKP Server Monitor", Visible = onlineServices };
@@ -56,14 +57,6 @@ namespace ServerBotTracker
             };
         }
 
-        private void BuildNotificationButtons(Panel heading)
-        {
-            var actions = new FlowLayoutPanel { Dock = DockStyle.Right, Width = 315, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
-            actions.Controls.Add(updateButton);
-            actions.Controls.Add(notificationButton);
-            heading.Controls.Add(actions);
-        }
-
         private void RefreshNotificationCount()
         {
             notificationButton.Text = "การแจ้งเตือน (" + notifications.State.Items.Count(item => !item.Read) + ")";
@@ -78,8 +71,8 @@ namespace ServerBotTracker
         {
             try
             {
-                if (notifications.Add(id, title, message, kind, remote) && tray.Visible)
-                    tray.ShowBalloonTip(5000, title, message.Length > 200 ? message.Substring(0, 200) : message, kind == "down" ? ToolTipIcon.Warning : ToolTipIcon.Info);
+                if (notifications.Add(id, title, message, kind, remote) && tray != null && tray.Visible)
+                    tray.ShowBalloonTip(5000, title, message.Length > 200 ? message.Substring(0, 200) : message, kind == "down" || kind == "database-down" ? ToolTipIcon.Warning : ToolTipIcon.Info);
             }
             catch (Exception exception)
             {
@@ -90,12 +83,8 @@ namespace ServerBotTracker
 
         private void PublishServerAlert(ServerEntry server, ServerResult result)
         {
-            string transition = alertTracker.Observe(server.Id, result.Ping != null && result.Ping.Success);
-            if (transition == null || !notifications.State.ServerAlerts)
-                return;
-            string title = transition == "down" ? "เซิร์ฟเวอร์ไม่ตอบกลับ" : "เซิร์ฟเวอร์กลับมาเชื่อมต่อได้";
-            string detail = server.Name + " (" + server.Host + ") • " + (transition == "down" ? "Ping ไม่ผ่านสองรอบติดต่อกัน" : "ได้รับคำตอบ Ping แล้ว");
-            AddNotification(Guid.NewGuid().ToString("N"), title, detail, transition, false);
+            PublishHealthTransition(server, result.Ping, false);
+            if (result.DatabaseEnabled) PublishHealthTransition(server, result.Database, true);
         }
 
         public async Task CheckReleaseAsync(bool manual)

@@ -11,17 +11,19 @@ namespace ServerBotTracker
         [DataMember] public string Id { get; set; }
         [DataMember] public string Name { get; set; }
         [DataMember] public string Host { get; set; }
+        [DataMember] public DatabaseOptions Database { get; set; }
 
         public ServerEntry()
         {
             Id = Guid.NewGuid().ToString("N");
             Name = "";
             Host = "";
+            Database = new DatabaseOptions();
         }
 
         public ServerEntry Copy()
         {
-            return new ServerEntry { Id = Id, Name = Name, Host = Host };
+            return new ServerEntry { Id = Id, Name = Name, Host = Host, Database = Database == null ? new DatabaseOptions() : Database.Copy() };
         }
 
         public void Validate()
@@ -35,6 +37,7 @@ namespace ServerBotTracker
             IPAddress parsed;
             if (!IPAddress.TryParse(Host, out parsed) && Uri.CheckHostName(Host) != UriHostNameType.Dns)
                 throw new ArgumentException("ระบุเฉพาะ IP หรือชื่อโฮสต์ ไม่ต้องใส่ URL หรือพอร์ต");
+            if (Database != null) Database.Validate();
         }
     }
 
@@ -48,7 +51,7 @@ namespace ServerBotTracker
 
         public AppConfiguration()
         {
-            Version = 2;
+            Version = 3;
             Servers = new List<ServerEntry>();
             TimeoutMs = 3000;
             IntervalSeconds = 30;
@@ -64,7 +67,7 @@ namespace ServerBotTracker
 
         public void Validate()
         {
-            if (Version != 2 || Servers == null || TimeoutMs < 500 || TimeoutMs > 15000 || IntervalSeconds < 5 || IntervalSeconds > 3600)
+            if (Version != 3 || Servers == null || TimeoutMs < 500 || TimeoutMs > 15000 || IntervalSeconds < 5 || IntervalSeconds > 3600)
                 throw new ArgumentException("รูปแบบข้อมูลหรือการตั้งค่าไม่ถูกต้อง");
             var ids = new HashSet<string>(StringComparer.Ordinal);
             foreach (ServerEntry server in Servers)
@@ -91,13 +94,26 @@ namespace ServerBotTracker
         public string Address { get; set; }
         public DateTime CheckedAt { get; set; }
         public ProbeResult Ping { get; set; }
+        public bool DatabaseEnabled { get; set; }
+        public ProbeResult Database { get; set; }
+
+        public string Health
+        {
+            get
+            {
+                if (Ping == null || (DatabaseEnabled && Database == null)) return "pending";
+                if (DatabaseEnabled && Ping.Success != Database.Success) return "warning";
+                return Ping.Success ? "healthy" : "down";
+            }
+        }
 
         public string Summary
         {
             get
             {
-                if (Ping == null)
+                if (Health == "pending")
                     return "ยังไม่ตรวจ";
+                if (Health == "warning") return Ping.Success ? "ฐานข้อมูลมีปัญหา" : "DB ใช้ได้ / Ping ไม่ตอบ";
                 return Ping.Success ? "ผ่าน" : "ไม่ผ่าน";
             }
         }
