@@ -10,16 +10,16 @@
 
 ## สร้างรุ่นโปรแกรม
 
-1. ปรับ `AssemblyVersion` และ `AssemblyFileVersion` ใน `src/AssemblyInfo.cs` ให้สูงกว่ารุ่นที่เผยแพร่แล้ว เช่น `1.7.0.0`
+1. ปรับ `AssemblyVersion` และ `AssemblyFileVersion` ใน `Development/src/AssemblyInfo.cs` ให้สูงกว่ารุ่นที่เผยแพร่แล้ว เช่น `1.7.0.0`
 2. รันคำสั่งต่อไปนี้จากโฟลเดอร์โครงการ:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Build.ps1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Package.ps1 -Notes 'รายละเอียดการเปลี่ยนแปลงรุ่นนี้'
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Development\tools\Build.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Development\tools\Package.ps1 -Notes 'รายละเอียดการเปลี่ยนแปลงรุ่นนี้'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Development\tools\Verify.ps1
 ```
 
-3. ตรวจผลทดสอบและเปิดดูรายละเอียดรุ่นที่ `release\publish\v<รุ่น>`
+3. ตรวจผลทดสอบและเปิดดูรายละเอียดรุ่นที่ `Archive\releases\v<รุ่น>`
 4. ใน public repository สร้าง Release ด้วย tag ที่ตรงกับ `Tag` ใน `update-fkp.json` เช่น `v1.7.0`
 5. แนบสี่ไฟล์จากโฟลเดอร์รุ่น:
 
@@ -30,7 +30,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify.ps1
 
 6. ใส่รายละเอียดรุ่น ตรวจสอบอีกครั้ง แล้วเผยแพร่เป็นรุ่นปกติและกำหนดให้เป็น Latest
 
-`update-fkp.json` ใช้สำหรับ FKP Server Monitor ตั้งแต่รุ่น 1.7 ส่วน `update.json` คงข้อมูลรุ่น 1.6.0 เดิมจาก `tools/legacy-update.json` เพื่อให้โปรแกรมชื่อเดิมยังตรวจอัปเดตได้อย่างถูกต้อง ห้ามนำ manifest ใหม่ไปแทนไฟล์สำหรับรุ่นเก่า เพราะชื่อ EXE และชื่อผลิตภัณฑ์ที่รุ่นเก่ายอมรับต่างกัน ผู้ใช้ชื่อเดิมต้องเปิด Setup ใหม่หนึ่งครั้ง โดยรายการเซิร์ฟเวอร์เดิมยังคงอยู่ หลังจากนั้นใช้ระบบอัปเดตอัตโนมัติของ FKP Server Monitor ได้ตามปกติ
+`update-fkp.json` ใช้สำหรับ FKP Server Monitor ตั้งแต่รุ่น 1.7 ส่วน `update.json` คงข้อมูลรุ่น 1.6.0 เดิมจาก `Development/tools/legacy-update.json` เพื่อให้โปรแกรมชื่อเดิมยังตรวจอัปเดตได้อย่างถูกต้อง ห้ามนำ manifest ใหม่ไปแทนไฟล์สำหรับรุ่นเก่า เพราะชื่อ EXE และชื่อผลิตภัณฑ์ที่รุ่นเก่ายอมรับต่างกัน ผู้ใช้ชื่อเดิมต้องเปิด Setup ใหม่หนึ่งครั้ง โดยรายการเซิร์ฟเวอร์เดิมยังคงอยู่ หลังจากนั้นใช้ระบบอัปเดตอัตโนมัติของ FKP Server Monitor ได้ตามปกติ
 
 ห้ามนำโฟลเดอร์โครงการ ข้อมูลผู้ใช้ ไฟล์ `servers.json` หรือผลการทดสอบไปแนบ โปรแกรมดาวน์โหลด ZIP ที่มีเฉพาะ EXE และ runtime config สองไฟล์ และตรวจชื่อไฟล์ ขนาด SHA-256 ชื่อผลิตภัณฑ์ และหมายเลขรุ่นก่อนติดตั้ง
 
@@ -40,15 +40,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify.ps1
 
 สร้าง release สำหรับประกาศด้วย tag `announcements` และกำหนดเป็น **Pre-release** เพื่อไม่ให้กลายเป็น Latest ของโปรแกรม แนบไฟล์ชื่อ `announcements.json` เสมอ
 
-ครั้งแรก หากยังไม่ต้องการส่งข้อความ ให้ใช้ `tools/announcements.empty.json` โดยเปลี่ยนชื่อไฟล์ที่แนบเป็น `announcements.json` ไฟล์นี้ไม่มีข้อความและไม่ส่งการแจ้งเตือนใด ๆ
+ครั้งแรก หากยังไม่ต้องการส่งข้อความ ให้ใช้ `Development/tools/announcements.empty.json` โดยเปลี่ยนชื่อไฟล์ที่แนบเป็น `announcements.json` ไฟล์นี้ไม่มีข้อความและไม่ส่งการแจ้งเตือนใด ๆ
 
 เตรียมข้อความใหม่ด้วย:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Prepare-Announcement.ps1 -Id 'notice-20261015-01' -Title 'หัวข้อประกาศ' -Message 'ข้อความที่ต้องการแจ้งผู้ใช้งาน' -Days 14
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Development\tools\Prepare-Announcement.ps1 -Id 'notice-20261015-01' -Title 'หัวข้อประกาศ' -Message 'ข้อความที่ต้องการแจ้งผู้ใช้งาน' -Days 14
 ```
 
-คำสั่งนี้สร้าง `release\publish\announcements\announcements.json` เท่านั้น **ยังไม่ได้ส่งข้อความ** ตรวจเนื้อหาแล้วจึงนำไปแทนที่ asset ชื่อเดิมใน release `announcements` ด้วยตนเอง
+คำสั่งนี้สร้าง `Archive\announcements\announcements.json` เท่านั้น **ยังไม่ได้ส่งข้อความ** ตรวจเนื้อหาแล้วจึงนำไปแทนที่ asset ชื่อเดิมใน release `announcements` ด้วยตนเอง
 
 โปรแกรมที่เปิดอยู่ตรวจประกาศทุกสิบนาที ข้อความจะแสดงในกล่องการแจ้งเตือนและแจ้งเตือนบน Windows หาก Windows อนุญาต ต้องใช้ `Id` ใหม่เมื่ออยากส่งประกาศใหม่ การใช้ `Id` เดิมจะไม่แจ้งซ้ำ แม้ผู้ใช้อ่านแล้วหรือเปิดโปรแกรมใหม่ ข้อความมีวันเริ่มและวันหมดอายุเป็น UTC ส่วนหน้าจอแสดงเวลาท้องถิ่น
 
@@ -68,12 +68,12 @@ workflow ใน `.github/workflows/release.yml` จะ build, package และ 
 
 ตัวติดตั้งที่สร้างครั้งนี้ยังไม่ได้เซ็น Authenticode การมีชื่อผู้พัฒนาในหน้าต่างติดตั้งหรือการตรวจ SHA-256 ไม่ได้แทนที่ใบรับรองผู้เผยแพร่ของ Windows
 
-เมื่อเจ้าของมีใบรับรอง code-signing ที่เชื่อถือได้อยู่ใน Certificate Store สามารถใช้ `tools/Sign.ps1` เซ็น EXE โปรแกรม **ก่อน Package** แล้วเซ็น EXE ตัวติดตั้ง **หลัง Package** ได้ ตัวอย่าง:
+เมื่อเจ้าของมีใบรับรอง code-signing ที่เชื่อถือได้อยู่ใน Certificate Store สามารถใช้ `Development/tools/Sign.ps1` เซ็น EXE โปรแกรม **ก่อน Package** แล้วเซ็น EXE ตัวติดตั้ง **หลัง Package** ได้ ตัวอย่าง:
 
 ```powershell
-.\tools\Sign.ps1 -CertificateThumbprint '<thumbprint>' -Files '.\release\FKPServerMonitor.exe'
-.\tools\Package.ps1 -Notes 'รายละเอียดรุ่น'
-.\tools\Sign.ps1 -CertificateThumbprint '<thumbprint>' -Files '.\release\publish\v1.7.0\FKPServerMonitor-Setup.exe'
+.\Development\tools\Sign.ps1 -CertificateThumbprint '<thumbprint>' -Files '.\Program\FKPServerMonitor.exe'
+.\Development\tools\Package.ps1 -Notes 'รายละเอียดรุ่น'
+.\Development\tools\Sign.ps1 -CertificateThumbprint '<thumbprint>' -Files '.\Archive\releases\v1.7.0\FKPServerMonitor-Setup.exe'
 ```
 
 ให้แจกตัวติดตั้งจากโฟลเดอร์รุ่นที่เซ็นแล้ว และทดสอบแพ็กเกจใหม่เสมอ ไม่มีการสร้างหรือซื้อใบรับรองแทนเจ้าของในงานนี้

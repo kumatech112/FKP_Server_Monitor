@@ -1,6 +1,7 @@
 # Source stays here; runtime data and temporary build output do not.
-release/*
-!release/README.md
+/Program/
+/Archive/
+/*.lnk
 bin/
 obj/
 build/

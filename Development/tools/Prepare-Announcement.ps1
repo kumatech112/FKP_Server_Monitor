@@ -8,8 +8,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 if ($Id.Length -gt 100 -or $Title.Length -gt 160 -or $Message.Length -gt 4000) { throw 'Announcement text exceeds the supported length.' }
-$projectRoot = Split-Path -Parent $PSScriptRoot
-$output = Join-Path $projectRoot 'release\publish\announcements'
+$developmentRoot = Split-Path -Parent $PSScriptRoot
+$projectRoot = Split-Path -Parent $developmentRoot
+$output = Join-Path $projectRoot 'Archive\announcements'
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 $now = [DateTime]::UtcNow
 $feed = @{ Schema = 1; Items = @(@{ Id = $Id; Title = $Title; Message = $Message; PublishedUtc = $now.ToString('o'); ExpiresUtc = $now.AddDays($Days).ToString('o') }) }

@@ -1,102 +1,23 @@
 # FKP Server Monitor
 
-A Thai Windows dashboard for checking multiple servers with ping. Add a name and IP/hostname, then read the green **ผ่าน** or red **ไม่ผ่าน** result. No service-port setup or report export.
+ดับเบิลคลิก **FKP Server Monitor.lnk** ในโฟลเดอร์นี้เพื่อเปิดโปรแกรมภาษาไทย หรือเปิด **Program/FKPServerMonitor.exe** โดยตรง
 
-## Run
+| โฟลเดอร์ | ใช้เก็บอะไร |
+| --- | --- |
+| **Program** | โปรแกรมพร้อมใช้งาน ตัวติดตั้ง และคู่มือภาษาไทย |
+| **Development** | ซอร์สโค้ด ไอคอน เอกสาร สคริปต์สร้างโปรแกรม และโค้ดตรวจสอบ |
+| **Archive** | รุ่นก่อนหน้า ชุดเผยแพร่ ผลตรวจสอบ และไฟล์ระหว่างสร้างโปรแกรม |
 
-Download the [Windows installer](https://github.com/kumatech112/Server_Bot_Tracker/releases/latest/download/FKPServerMonitor-Setup.exe) or [portable ZIP](https://github.com/kumatech112/Server_Bot_Tracker/releases/latest/download/FKPServerMonitor-portable.zip) from the [official GitHub Releases](https://github.com/kumatech112/Server_Bot_Tracker/releases/latest).
+หากต้องการติดตั้ง ให้เปิด **Program/FKPServerMonitor-Setup.exe** เลือกโฟลเดอร์ปลายทาง แล้วทำตามตัวช่วย เริ่มต้นที่ `C:\Program Files\FKP Server Monitor` ถอนการติดตั้งได้จาก Control Panel หรือ Uninstall.exe หลังติดตั้ง
 
-For a standard installation, open `release/FKPServerMonitor-Setup.exe`. It defaults to Program Files, installs for everyone on the computer, and creates a common Start menu shortcut and Control Panel entry. Windows requests administrator approval when installation begins. The dashboard runs with normal user permissions. The portable option remains: double-click `release/FKPServerMonitor.exe` and keep its `.exe.config` beside it. Requires Windows with .NET Framework 4.8 or newer. No Python, SDK or terminal is needed to run the app.
+หากใช้แบบ Portable ให้เก็บโฟลเดอร์ **Program** ทั้งชุดไว้ด้วยกัน โปรแกรมต้องใช้ Windows และ .NET Framework 4.8 ขึ้นไป ไม่ต้องติดตั้ง Python หรือเครื่องมือพัฒนา
 
-- Add, edit, delete or paste multiple server addresses.
-- Check all entries or selected rows; search by name or host.
-- See pass/fail, round-trip time and last-check timestamp.
-- Enable automatic checking or stop an active cycle.
-- Configure a 500–15,000 ms timeout and a 5–3,600 second interval.
+รายการเซิร์ฟเวอร์และประวัติการแจ้งเตือนยังเก็บแยกที่ `%LOCALAPPDATA%\Kuma\ServerBotTracker` การจัดโฟลเดอร์ครั้งนี้ไม่ย้ายหรือลบข้อมูลดังกล่าว
 
-One ICMP echo request is sent per server per cycle, using the same protocol as ordinary Windows ping. Automatic checking is off at launch. Enabling it checks immediately, then waits the configured interval after each cycle finishes. Cycles never overlap. Search filters the view; “check all” still checks the entire list.
+- [คู่มือผู้ใช้ภาษาไทย](Program/USER_GUIDE_TH.md)
+- [คู่มือผู้พัฒนา](Development/README.md)
+- [รายละเอียดโฟลเดอร์และไฟล์/ฟังก์ชันที่ปรับ](Development/docs/FOLDER_LAYOUT.md)
+- [ผลตรวจสอบหลังจัดโฟลเดอร์](Development/docs/FOLDER_LAYOUT_VERIFICATION.md)
+- [วิธีเผยแพร่โปรแกรมและประกาศ](Development/docs/RELEASES.th.md)
 
-## Project layout
-
-```text
-FKP Server Monitor/
-  src/                 Complete application source
-  assets/              Original product icons embedded during build
-  docs/                Thai guide, data flow and verification
-  tools/               Build and verification scripts
-    checks/            Maintained verification source
-  release/             Ready-to-run app; binaries are Git-ignored
-  README.md
-  .gitignore
-  .gitattributes
-  .editorconfig
-```
-
-Build staging is created outside the project and removed after compilation. Screenshots, verification binaries and fixtures stay at `%LOCALAPPDATA%\Kuma\ServerBotTrackerDevelopment\verification-*`. Git tracks source, docs and developer tools; it excludes generated files and user settings.
-
-## Updates and notifications (1.2)
-
-The public source and distribution repository is `kumatech112/Server_Bot_Tracker`, following the owner's decision to make it public. Stable GitHub Releases provide updates; the separate `announcements` pre-release provides the announcement feed. No GitHub credentials are embedded in the app.
-
-- Background checks run at launch and every ten minutes.
-- New versions download automatically; SHA-256, size, ZIP contents and executable version are verified.
-- Installation waits until the app closes. “อัปเดตและเริ่มใหม่” installs immediately after closing and restarts the app; active automatic ping monitoring resumes.
-- Existing program files are backed up and a failed replacement rolls back the files already changed.
-- Public announcements appear once in a persistent inbox, with publish/expiry windows.
-- Two consecutive failed ping cycles trigger one local down alert. The next successful check triggers one recovery alert. Continued failures do not repeat the warning within the session.
-- Notifications are retained in `notifications.json` beside the user's settings, with a 100-item history. A damaged inbox falls back to memory without replacing the original.
-- An unreachable release source never stops ping monitoring. Server lists and alert contents are not uploaded to the release channel.
-
-Automatic downloads and local server alerts can be toggled in the Thai notification/update dialogs. Windows may suppress tray popups; inbox messages remain available. Users of Server Bot Tracker 1.6 and earlier must run the renamed Setup once; subsequent updates use the FKP Server Monitor channel. The current installer is unsigned; Windows publisher signing is a separate owner-supplied certificate step.
-
-Operator instructions: [Thai publishing guide](docs/RELEASES.th.md). A code commit by itself does not publish an update.
-
-## Installation and removal (1.6)
-
-The supplied robot icon is embedded in the application, setup and uninstall EXEs, and appears in the dashboard, window/taskbar icons, tray and Start menu shortcut. Dialogs use the same product icon. The existing light/blue colors and ping-only layout remain.
-
-Setup follows a classic wizard layout with blue robot artwork, white pages and standard Next/Back/Cancel buttons: welcome, **choose installation folder**, confirmation, progress and completion. Click **เรียกดู... (Browse)** and choose a drive or parent folder: Setup adds `FKP Server Monitor` and creates it during installation. Choosing D: gives `D:\FKP Server Monitor`. An existing product folder is retained without appending another copy. A typed full custom path is also supported; typing a drive root adds the product folder. Confirmation shows the final path before file writes. Setup remembers the machine installation path. A matching uninstall wizard opens from **Control Panel > Programs and Features > FKP Server Monitor > Uninstall/Change** or the installed **Uninstall.exe**. Both routes request administrator approval before changing a machine installation.
-
-The default for a first install is `%ProgramFiles%\FKP Server Monitor`, normally `C:\Program Files\FKP Server Monitor`. Registration is in HKLM and the shortcut is in the common Start menu. After a successful machine install, the original user's older per-user registration, shortcut and known program files are removed using the reversible removal engine; unrelated files and settings remain. A legacy-cleanup obstruction is reported as a completion notice while retaining the old copy. A registration belonging to a different target is preserved during removal.
-
-The removal engine checks all known program files and the owned shortcut, stages reversible file moves, and backs up registration values. A later failure restores moved files and metadata. Once removal has committed, a temporary-cleanup problem is a completion notice rather than a misleading uninstall failure. Server lists, settings and unrelated files remain. Error details can be scrolled and copied.
-
-Installation and removal run on a dedicated STA worker so the wizard stays responsive and cannot close during file changes. The original user window launches a separate administrator helper for the protected operation. Install rollback restores files, shortcut and original registry values. Run Setup 1.6 once to migrate to the standard machine installation and current uninstaller; portable ZIP updates still replace only the app and runtime config.
-
-Machine-installed updates download as before, then request Windows approval before replacing protected files. The administrator worker checks the registered target and rechecks the prepared digest/version/size against the live official manifest. The original user worker restarts the dashboard with normal permissions. Declined/failed updates retain the existing program and leave a local inbox message; a requested restart reopens that existing version. Updating a writable legacy per-user copy remains supported without migration.
-
-Direct launch remains fixed: double-clicking the installed `Uninstall.exe` opens the uninstall wizard without command-line arguments. Control Panel's `--uninstall` command follows the same route. Earlier copies incorrectly entered installation mode when opened directly and could try to overwrite themselves. Run the current Setup to replace an older uninstaller; automatic app updates do not replace that file.
-
-## Saved server lists
-
-Names, addresses and preferences are stored per Windows user at `%LOCALAPPDATA%\Kuma\ServerBotTracker\servers.json`. Atomic save retains the preceding version as `servers.json.bak`. Corrupt or unsupported settings are reported and preserved.
-
-Version 1.1 reads the previous version's saved lists without discarding IDs, names or addresses. Old port/method fields are ignored. Loading does not rewrite the file; the next normal save uses schema version 2 and backs up the original. Existing duplicate-host entries are preserved; bulk entry skips new duplicate hosts.
-
-Copy the release folder to distribute the app. Transfer settings separately, with the app closed, if the destination should use the same list. Results are memory-only and start as “ยังไม่ตรวจ” after each launch.
-
-## Build and verify
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Build.ps1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Package.ps1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify.ps1
-```
-
-These commands change no machine execution-policy setting. The build uses Windows' installed Framework C# compiler and treats warnings as errors. Verification exercises a byte-identical copy of the release executable under a real GUI message loop, then launches its actual entry point.
-
-## Result meaning
-
-**ผ่าน** means an ICMP echo reply was received; **ไม่ผ่าน** means no successful reply was received, including DNS errors and timeouts. This dashboard measures ping reachability. A firewall blocking echo requests can produce a failed result even when a service is accessible.
-
-DNS and ping each receive one timeout budget; hostname checks may take about twice the timeout, excluding queue wait. At most eight entries are checked concurrently. Hostnames use their first IPv4 address, or first returned address if no IPv4 is available. The chosen IP and detailed response appear in row tooltips/details.
-
-Results represent the latest completed check and its timestamp. Stop preserves earlier results for unfinished entries.
-
-See [Thai guide](docs/USAGE.th.md), [data flow and function index](docs/ARCHITECTURE.md), and [verification](docs/VERIFICATION.md).
-
-## Product rename (1.7)
-
-The app, installer, executable, default installation folder, shortcuts and Control Panel display name are now FKP Server Monitor. Existing custom installation paths are remembered. Server lists and inbox history keep their existing storage location. The GitHub repository URL and internal compatibility identifiers remain stable.
-
-The new updater uses update-fkp.json. The older update.json feed remains pinned to the compatible 1.6.0 package. Install the new Setup once to migrate from the former name. See [rename details and changed functions](docs/RENAME.md).
+Git เก็บซอร์สโค้ดและเอกสาร ส่วน **Program**, **Archive**, ทางลัด และไฟล์ชั่วคราวไม่ถูกนำเข้า Git การจัดโฟลเดอร์หรือ push โค้ดไม่ได้เผยแพร่อัปเดตหรือส่งประกาศให้ผู้ใช้โดยอัตโนมัติ

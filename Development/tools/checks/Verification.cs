@@ -27,6 +27,7 @@ internal static class Verification
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Control.CheckForIllegalCrossThreadCalls = true;
+            LayoutVerification.Run(arguments[1], Assert);
             VerifyPersistence();
             VerifyValidation();
             VerifyLegacyConfiguration();

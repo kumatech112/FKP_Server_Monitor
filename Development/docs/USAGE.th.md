@@ -2,7 +2,7 @@
 
 ## เริ่มใช้งาน
 
-ดับเบิลคลิก `release\FKPServerMonitor.exe` และเก็บ `FKPServerMonitor.exe.config` ไว้ข้างกัน ใช้กับ Windows ที่มี .NET Framework 4.8 ขึ้นไป
+ดับเบิลคลิก `Program\FKPServerMonitor.exe` และเก็บ `FKPServerMonitor.exe.config` ไว้ข้างกัน ใช้กับ Windows ที่มี .NET Framework 4.8 ขึ้นไป
 
 1. กด **เพิ่มเซิร์ฟเวอร์**
 2. ใส่ชื่อ เช่น “เครื่องรายงาน”
