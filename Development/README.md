@@ -4,7 +4,7 @@ A Thai Windows dashboard for checking multiple servers with ping. Add a name and
 
 ## Run
 
-Download the [Windows installer](https://github.com/kumatech112/Server_Bot_Tracker/releases/latest/download/FKPServerMonitor-Setup.exe) or [portable ZIP](https://github.com/kumatech112/Server_Bot_Tracker/releases/latest/download/FKPServerMonitor-portable.zip) from the [official GitHub Releases](https://github.com/kumatech112/Server_Bot_Tracker/releases/latest).
+Download the [Windows installer](https://github.com/kumatech112/FKP_Server_Monitor/releases/latest/download/FKPServerMonitor-Setup.exe) or [portable ZIP](https://github.com/kumatech112/FKP_Server_Monitor/releases/latest/download/FKPServerMonitor-portable.zip) from the [official GitHub Releases](https://github.com/kumatech112/FKP_Server_Monitor/releases/latest).
 
 For a standard installation, open `Program/FKPServerMonitor-Setup.exe`. It defaults to Program Files, installs for everyone on the computer, and creates a common Start menu shortcut and Control Panel entry. Windows requests administrator approval when installation begins. The dashboard runs with normal user permissions. The portable option remains: double-click `Program/FKPServerMonitor.exe` and keep its `.exe.config` beside it. Requires Windows with .NET Framework 4.8 or newer. No Python, SDK or terminal is needed to run the app.
 
@@ -19,7 +19,7 @@ One ICMP echo request is sent per server per cycle, using the same protocol as o
 ## Project layout
 
 ```text
-FKP Server Monitor/
+FKP_Server_Monitor/
   FKP Server Monitor.lnk  Launch shortcut
   Program/               Current executable, runtime config, installer and Thai guide
   Development/           Complete source, assets, docs and developer tools
@@ -38,7 +38,7 @@ Temporary compilation stays in `Archive/builds` and is removed after compilation
 
 ## Updates and notifications (1.2)
 
-The public source and distribution repository is `kumatech112/Server_Bot_Tracker`, following the owner's decision to make it public. Stable GitHub Releases provide updates; the separate `announcements` pre-release provides the announcement feed. No GitHub credentials are embedded in the app.
+The public source and distribution repository is `kumatech112/FKP_Server_Monitor`, following the owner's decision to make it public. Stable GitHub Releases provide updates; the separate `announcements` pre-release provides the announcement feed. No GitHub credentials are embedded in the app.
 
 - Background checks run at launch and every ten minutes.
 - New versions download automatically; SHA-256, size, ZIP contents and executable version are verified.

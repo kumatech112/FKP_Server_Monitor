@@ -1,5 +1,7 @@
 # FKP Server Monitor
 
+โฟลเดอร์โปรเจกต์และ GitHub repository ใช้ชื่อ **FKP_Server_Monitor** ส่วนชื่อโปรแกรมยังเป็น **FKP Server Monitor**
+
 ดับเบิลคลิก **FKP Server Monitor.lnk** ในโฟลเดอร์นี้เพื่อเปิดโปรแกรมภาษาไทย หรือเปิด **Program/FKPServerMonitor.exe** โดยตรง
 
 | โฟลเดอร์ | ใช้เก็บอะไร |

@@ -6,7 +6,7 @@ Distribution files are `FKPServerMonitor.exe`, `FKPServerMonitor.exe.config`, `F
 
 ## Compatibility
 
-- Retain the existing GitHub repository URL so published links continue working.
+- The GitHub repository was subsequently renamed to `kumatech112/FKP_Server_Monitor` at the owner's request. Older published links were checked through GitHub's redirects. See [repository rename](REPOSITORY_RENAME.md).
 - Retain `%LOCALAPPDATA%\Kuma\ServerBotTracker`, the registry key, single-instance mutex and internal namespace/resource identifiers. These preserve old server lists, notification history and installation detection.
 - The new feed is `update-fkp.json`. Older clients require exact old filenames and the former ProductName; their `update.json` retains the public v1.6.0 package through `tools/legacy-update.json`. Keep the older tagged package available. Users of the former name run the new Setup once before receiving future updates through the renamed channel.
 - Setup recognizes both product names, checks old files before writing, stages obsolete files and shortcuts, and restores them if installation fails. Unrelated colliding files are not overwritten.

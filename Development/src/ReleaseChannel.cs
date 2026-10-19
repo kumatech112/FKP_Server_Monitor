@@ -87,7 +87,7 @@ namespace ServerBotTracker
 
     public sealed class ReleaseChannel : IDisposable
     {
-        public const string OfficialRepository = "kumatech112/Server_Bot_Tracker";
+        public const string OfficialRepository = "kumatech112/FKP_Server_Monitor";
         public const string PackageName = "FKPServerMonitor-portable.zip";
         public const long MaximumPackageBytes = 20 * 1024 * 1024;
         public const string ApplicationFile = ProductIdentity.ApplicationFile;

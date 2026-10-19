@@ -185,7 +185,7 @@ internal static class Setup
                     key.SetValue("InstallLocation", target);
                     key.SetValue("DisplayIcon", Path.Combine(target, "FKPServerMonitor.exe"));
                     key.SetValue("UninstallString", "\"" + Path.Combine(target, "Uninstall.exe") + "\" --uninstall");
-                    key.SetValue("URLInfoAbout", "https://github.com/kumatech112/Server_Bot_Tracker");
+                    key.SetValue("URLInfoAbout", "https://github.com/kumatech112/FKP_Server_Monitor");
                     key.SetValue("NoModify", 1, RegistryValueKind.DWord);
                     key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
                     key.SetValue("InstallDate", DateTime.Today.ToString("yyyyMMdd", CultureInfo.InvariantCulture));

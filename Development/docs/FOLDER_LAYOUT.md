@@ -3,7 +3,7 @@
 The reference project was inspected read-only at `\\10.0.0.97\kuma$\Z\Projects\MPFM_Bot_Worker`. Its top-level Program, Development and Archive organization is used here. Only folders required by this C# application were created; MPFM-specific databases, Python runtimes and report folders were not copied.
 
 ```text
-FKP Server Monitor/
+FKP_Server_Monitor/
   FKP Server Monitor.lnk          Launch the current app
   README.md                      Short Thai entry guide
   Program/
@@ -31,6 +31,8 @@ FKP Server Monitor/
 ```
 
 Git metadata, .github automation and editor configuration remain at the repository root. Program, Archive and the generated root shortcut are excluded from Git. The complete source and source assets remain under Development.
+
+The current project folder and GitHub repository are named **FKP_Server_Monitor**. The application's display name remains **FKP Server Monitor**. The generated root shortcut uses the current folder path. See [repository rename](REPOSITORY_RENAME.md) for the Git remote and older-client compatibility checks.
 
 ## Paths and data flow
 
