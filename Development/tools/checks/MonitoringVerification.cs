@@ -301,6 +301,12 @@ internal static class MonitoringVerification
         }
     }
 
+    private static void LayoutPreview(Control control)
+    {
+        control.PerformLayout();
+        foreach (Control child in control.Controls) LayoutPreview(child);
+    }
+
     private static void VerifyDialogs(string root)
     {
         Assembly app = typeof(MainForm).Assembly;
@@ -360,6 +366,7 @@ internal static class MonitoringVerification
             float uiScale = form.DeviceDpi / 96f;
             form.ClientSize = new Size((int)(1260 * uiScale), (int)(820 * uiScale));
             Application.DoEvents();
+            LayoutPreview(form);
             var cards = (FlowLayoutPanel)Find(form, "ServerCards");
             var card = cards.Controls.OfType<ServerCard>().Single(item => item.ServerId == entry.Id);
             typeof(ServerCard).GetMethod("OnClick", Instance).Invoke(card, new object[] { EventArgs.Empty });
@@ -370,7 +377,8 @@ internal static class MonitoringVerification
             assert(grid.Visible && !cards.Visible, "Top navigation switches to the server list without changing entries");
             showDashboard.Invoke(form, new object[] { true });
             assert(cards.Visible && !grid.Visible, "Top navigation restores the dashboard view");
-            string dimensions = "client=" + form.ClientSize + ", panel=" + cards.ClientSize + ", dpi=" + form.DeviceDpi
+            LayoutPreview(form);
+            string dimensions = "client=" + form.ClientSize + ", layout=" + form.Controls[0].Size + ", content=" + cards.Parent.Size + ", panel=" + cards.ClientSize + ", dpi=" + form.DeviceDpi
                 + ", card=" + card.Size + ", columns=" + cards.Controls.OfType<ServerCard>().Select(item => item.Left).Distinct().Count();
             Console.WriteLine("Compact layout reference: " + dimensions);
             assert(cards.Controls.OfType<ServerCard>().All(item => item.Height <= form.DeviceDpi / 96f * 90)
@@ -423,6 +431,7 @@ internal static class MonitoringVerification
             Capture(form, Path.Combine(root, "compact-dashboard.png"));
             form.ClientSize = new Size((int)(1900 * uiScale), (int)(960 * uiScale));
             Application.DoEvents();
+            LayoutPreview(form);
             assert(cards.Controls.OfType<ServerCard>().Select(item => item.Left).Distinct().Count() >= 9,
                 "Widening the dashboard adds columns instead of inflating cards or limiting them to four columns");
             Capture(form, Path.Combine(root, "compact-dashboard-wide.png"));
