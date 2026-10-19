@@ -2,12 +2,13 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using Microsoft.Win32;
+using ServerBotTracker;
 
 internal static class InstallLocation
 {
     public static string DefaultDirectory
     {
-        get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ServerBotTracker"); }
+        get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "FKP Server Monitor"); }
     }
 
     public static string Normalize(string directory)
@@ -17,7 +18,7 @@ internal static class InstallLocation
         bool drivePath = value.Length >= 3 && Char.IsLetter(value[0]) && value[1] == ':' && (value[2] == '\\' || value[2] == '/');
         bool networkPath = value.StartsWith(@"\\", StringComparison.Ordinal) && !value.StartsWith(@"\\?\", StringComparison.Ordinal) && !value.StartsWith(@"\\.\", StringComparison.Ordinal);
         if ((!drivePath && !networkPath) || value.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
-            throw new IOException("กรุณาระบุพาธเต็ม เช่น D:\\Programs\\ServerBotTracker");
+            throw new IOException("กรุณาระบุพาธเต็ม เช่น D:\\Programs\\FKP Server Monitor");
         string target;
         try { target = Path.GetFullPath(value).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); }
         catch (Exception exception)
@@ -60,7 +61,7 @@ internal static class InstallLocation
         {
             string root = Path.GetPathRoot(value);
             if (!String.IsNullOrEmpty(root) && String.Equals(value.TrimEnd('\\', '/'), root.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
-                return Normalize(Path.Combine(root, "ServerBotTracker"));
+                return Normalize(Path.Combine(root, "FKP Server Monitor"));
         }
         catch (ArgumentException) { return Normalize(value); }
         return Normalize(value);
@@ -69,10 +70,11 @@ internal static class InstallLocation
     public static string ForBrowseSelection(string directory)
     {
         string value = directory.TrimEnd('\\', '/');
-        if (String.Equals(Path.GetFileName(value), "ServerBotTracker", StringComparison.OrdinalIgnoreCase)
-            || File.Exists(Path.Combine(directory, "ServerBotTracker.exe")) || File.Exists(Path.Combine(directory, "Uninstall.exe")))
+        if (String.Equals(Path.GetFileName(value), "FKP Server Monitor", StringComparison.OrdinalIgnoreCase)
+            || File.Exists(Path.Combine(directory, ProductIdentity.LegacyApplicationFile))
+            || File.Exists(Path.Combine(directory, "FKPServerMonitor.exe")) || File.Exists(Path.Combine(directory, "Uninstall.exe")))
             return ForDestination(directory);
-        return Normalize(Path.Combine(directory, "ServerBotTracker"));
+        return Normalize(Path.Combine(directory, "FKP Server Monitor"));
     }
 
     public static bool Matches(string first, string second)
@@ -83,15 +85,18 @@ internal static class InstallLocation
 
     public static void ValidateProductFiles(string target)
     {
-        foreach (string name in new[] { "ServerBotTracker.exe", "Uninstall.exe" })
+        foreach (string name in new[] { "FKPServerMonitor.exe", ProductIdentity.LegacyApplicationFile, "Uninstall.exe" })
         {
             string file = Path.Combine(target, name);
             if (Directory.Exists(file)) throw new IOException("โฟลเดอร์นี้มีรายการชื่อซ้ำกับไฟล์โปรแกรม กรุณาเลือกโฟลเดอร์อื่น");
-            if (File.Exists(file) && FileVersionInfo.GetVersionInfo(file).ProductName != "Server Bot Tracker")
+            if (File.Exists(file) && !ProductIdentity.IsKnownProduct(FileVersionInfo.GetVersionInfo(file).ProductName))
                 throw new IOException("โฟลเดอร์นี้มีไฟล์ของโปรแกรมอื่นชื่อ " + name + " กรุณาเลือกโฟลเดอร์อื่น");
         }
-        string configuration = Path.Combine(target, "ServerBotTracker.exe.config");
-        if (Directory.Exists(configuration) || (File.Exists(configuration) && !File.Exists(Path.Combine(target, "ServerBotTracker.exe"))))
-            throw new IOException("โฟลเดอร์นี้มีไฟล์ตั้งค่าชื่อซ้ำ กรุณาเลือกโฟลเดอร์อื่น");
+        foreach (string application in new[] { ProductIdentity.ApplicationFile, ProductIdentity.LegacyApplicationFile })
+        {
+            string configuration = Path.Combine(target, application + ".config");
+            if (Directory.Exists(configuration) || (File.Exists(configuration) && !File.Exists(Path.Combine(target, application))))
+                throw new IOException("โฟลเดอร์นี้มีไฟล์ตั้งค่าชื่อซ้ำ กรุณาเลือกโฟลเดอร์อื่น");
+        }
     }
 }

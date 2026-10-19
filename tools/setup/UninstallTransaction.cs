@@ -2,12 +2,21 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Microsoft.Win32;
+using ServerBotTracker;
 
 internal static class UninstallTransaction
 {
     public static string Remove(string target, string shortcutPath, RegistryKey registryRoot, string registryPath)
     {
-        string[] names = { "ServerBotTracker.exe", "ServerBotTracker.exe.config", "Uninstall.exe" };
+        var names = new List<string> { "FKPServerMonitor.exe", "FKPServerMonitor.exe.config", "Uninstall.exe" };
+        string legacyExecutable = Path.Combine(target, ProductIdentity.LegacyApplicationFile);
+        if (File.Exists(legacyExecutable))
+        {
+            if (!ProductIdentity.IsKnownProduct(System.Diagnostics.FileVersionInfo.GetVersionInfo(legacyExecutable).ProductName))
+                throw new IOException("ยังไม่ได้ถอนการติดตั้ง: พบไฟล์ชื่อเดิมที่ไม่ใช่ของโปรแกรมนี้");
+            names.Add(ProductIdentity.LegacyApplicationFile);
+            names.Add(ProductIdentity.LegacyConfigurationFile);
+        }
         var files = new List<string>();
         foreach (string name in names)
         {

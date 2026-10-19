@@ -62,7 +62,7 @@ Results describe ICMP echo reachability. A firewall dropping echo packets can pr
 flowchart TD
     Window[Dashboard starts] --> Poll[Independent 10-minute release timer]
     Poll --> HTTPS[GitHub HTTPS release files]
-    HTTPS --> Manifest[Validate update.json and compare versions]
+    HTTPS --> Manifest[Validate update-fkp.json and compare versions]
     Manifest --> Download[Download bounded ZIP to per-user staging]
     Download --> Check[Verify SHA-256, size, exact file names and binary version]
     Check --> Ready[Notify update ready; continue monitoring]
@@ -93,7 +93,7 @@ The native Windows Forms installer embeds the two-file ZIP and compiles separate
 
 ## Standard machine installation and elevation (1.6)
 
-The owner chose Program Files and all-users installation. InstallationScope reads the remembered HKLM target or defaults to `%ProgramFiles%\ServerBotTracker`. Browse accepts a drive/parent and creates a product subfolder path; typed full custom paths remain supported. Confirmation displays the exact destination. The ordinary user wizard stays responsive while its STA worker requests `runas` through ElevationBroker. Setup is copied to a unique local temporary job directory before elevation, so an elevated account does not need access to a network/mapped-drive source. Only the protected operation runs elevated; optional app launch remains in the original user process.
+The owner chose Program Files and all-users installation. InstallationScope reads the remembered HKLM target or defaults to `%ProgramFiles%\FKP Server Monitor`. Browse accepts a drive/parent and creates a product subfolder path; typed full custom paths remain supported. Confirmation displays the exact destination. The ordinary user wizard stays responsive while its STA worker requests `runas` through ElevationBroker. Setup is copied to a unique local temporary job directory before elevation, so an elevated account does not need access to a network/mapped-drive source. Only the protected operation runs elevated; optional app launch remains in the original user process.
 
 `InstallMachine` requires an administrator token and calls `InstallAtScope` with HKLM and CommonPrograms. The retained `InstallAt` wrapper selects HKCU for isolated verification. Shared file preflight checks every existing product file/shortcut before replacement. RegistryBackup captures original registry values and kinds; file backups and original shortcut bytes allow rollback of a failed install. Failed recovery retains the staging directory and identifies it. Cleanup-only failures are completion notices. Successful machine installation then removes the original user's legacy HKCU registration, shortcut and known files through the reversible removal engine; unrelated legacy data remains. A legacy cleanup failure does not turn the completed machine install into a failure.
 
@@ -125,7 +125,7 @@ The updater already takes the running application's actual base directory and us
 
 ### Direct uninstaller launch correction (1.5.2)
 
-`Setup.Main` now treats zero arguments and the executable basename `Uninstall.exe` (case-insensitive) as an uninstall launch. It uses the same temporary helper, original-directory handoff and confirmation wizard as the explicit `--uninstall` route. Previously only that flag selected uninstall mode; double-clicking the installed copy incorrectly opened Setup and could attempt to overwrite its own running file. The regular ServerBotTracker-Setup.exe welcome/destination flow, silent install, mutex guard, removal engine and user data paths remain unchanged.
+`Setup.Main` now treats zero arguments and the executable basename `Uninstall.exe` (case-insensitive) as an uninstall launch. It uses the same temporary helper, original-directory handoff and confirmation wizard as the explicit `--uninstall` route. Previously only that flag selected uninstall mode; double-clicking the installed copy incorrectly opened Setup and could attempt to overwrite its own running file. The regular FKPServerMonitor-Setup.exe welcome/destination flow, silent install, mutex guard, removal engine and user data paths remain unchanged.
 
 `SetupVerification.VerifyUninstallEntryPoint` copies the real setup to Uninstall.exe inside an isolated Thai folder with spaces. It launches that EXE both without arguments and with the Control Panel flag, identifies only its child helper through a parent-PID WMI query and matching target argument, verifies the actual uninstall window title, then closes the welcome screen and checks clean exit and unchanged fixture files. No removal is confirmed against the user's installation. System.Management is used only by developer verification, not the shipped app/setup.
 
@@ -196,7 +196,7 @@ All current application functions are listed below. Methods with the same name b
 | `src/MainForm.cs` / MainForm | `SaveSettings` | Persist interval/timeout, revert controls on failure and reschedule timer |
 | `src/MainForm.cs` / MainForm | `OnClosing` | Stop scheduling, cancel current cycle and suppress later UI updates |
 
-`src/AssemblyInfo.cs` supplies version and Framework metadata; `src/app.manifest` declares user-level execution and DPI awareness. `tools/ServerBotTracker.exe.config` is the tracked source for the release runtime config.
+`src/AssemblyInfo.cs` supplies version and Framework metadata; `src/app.manifest` declares user-level execution and DPI awareness. `tools/FKPServerMonitor.exe.config` is the tracked source for the release runtime config.
 
 
 ### Added update, notification and installer functions

@@ -34,7 +34,7 @@ namespace ServerBotTracker
             RefreshNotificationCount();
             releaseChannel = new ReleaseChannel();
             trayIcon = Branding.CreateIcon();
-            tray = new NotifyIcon { Icon = trayIcon, Text = "Server Bot Tracker", Visible = onlineServices };
+            tray = new NotifyIcon { Icon = trayIcon, Text = "FKP Server Monitor", Visible = onlineServices };
             releaseTimer.Tick += async delegate { await CheckReleaseAsync(false); };
             if (onlineServices)
             {
@@ -191,7 +191,7 @@ namespace ServerBotTracker
                 layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
                 layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
                 layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-                layout.Controls.Add(Theme.Label("Server Bot Tracker  " + ReleaseChannel.CurrentVersion + "\nเผยแพร่ผ่าน GitHub • " + ReleaseChannel.OfficialRepository), 0, 0);
+                layout.Controls.Add(Theme.Label("FKP Server Monitor  " + ReleaseChannel.CurrentVersion + "\nเผยแพร่ผ่าน GitHub • " + ReleaseChannel.OfficialRepository), 0, 0);
                 var automaticUpdates = new CheckBox { Text = "ดาวน์โหลดอัปเดตอัตโนมัติ และติดตั้งเมื่อปิดโปรแกรม", AutoSize = true, Checked = notifications.State.AutomaticUpdates };
                 layout.Controls.Add(automaticUpdates, 0, 1);
                 var detail = new TextBox { ReadOnly = true, Multiline = true, Dock = DockStyle.Fill, ScrollBars = ScrollBars.Vertical, BackColor = Color.White, Text = releaseStatus + (preparedUpdate == null ? "" : "\r\n\r\n" + preparedUpdate.Manifest.Notes) };

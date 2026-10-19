@@ -19,7 +19,7 @@ try {
     Copy-Item -LiteralPath (Join-Path $projectRoot 'src\app.manifest') -Destination $buildRoot
     Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\branding\server-tracker.ico') -Destination $buildRoot
     Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\branding\server-tracker.png') -Destination $buildRoot
-    $executablePath = Join-Path $buildRoot 'ServerBotTracker.exe'
+    $executablePath = Join-Path $buildRoot 'FKPServerMonitor.exe'
     $arguments = @(
         '/nologo', '/target:winexe', '/platform:anycpu', '/optimize+', '/warn:4', '/warnaserror+',
         '/utf8output', '/codepage:65001', ('/out:' + $executablePath),
@@ -35,10 +35,10 @@ try {
     & $compilerPath @arguments
     if ($LASTEXITCODE -ne 0) { throw "Compilation failed with exit code $LASTEXITCODE" }
     New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
-    Copy-Item -LiteralPath $executablePath -Destination (Join-Path $releaseRoot 'ServerBotTracker.exe') -Force
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'ServerBotTracker.exe.config') -Destination $releaseRoot -Force
-    Write-Output ('Built: ' + (Join-Path $releaseRoot 'ServerBotTracker.exe'))
-    Get-FileHash -LiteralPath (Join-Path $releaseRoot 'ServerBotTracker.exe') -Algorithm SHA256 | Select-Object Algorithm, Hash, Path
+    Copy-Item -LiteralPath $executablePath -Destination (Join-Path $releaseRoot 'FKPServerMonitor.exe') -Force
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'FKPServerMonitor.exe.config') -Destination $releaseRoot -Force
+    Write-Output ('Built: ' + (Join-Path $releaseRoot 'FKPServerMonitor.exe'))
+    Get-FileHash -LiteralPath (Join-Path $releaseRoot 'FKPServerMonitor.exe') -Algorithm SHA256 | Select-Object Algorithm, Hash, Path
 }
 finally {
     $resolvedBuild = [IO.Path]::GetFullPath($buildRoot)

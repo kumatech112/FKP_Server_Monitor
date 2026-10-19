@@ -20,14 +20,17 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Verify.ps1
 ```
 
 3. ตรวจผลทดสอบและเปิดดูรายละเอียดรุ่นที่ `release\publish\v<รุ่น>`
-4. ใน public repository สร้าง Release ด้วย tag ที่ตรงกับ `Tag` ใน `update.json` เช่น `v1.7.0`
-5. แนบเฉพาะสามไฟล์จากโฟลเดอร์รุ่น:
+4. ใน public repository สร้าง Release ด้วย tag ที่ตรงกับ `Tag` ใน `update-fkp.json` เช่น `v1.7.0`
+5. แนบสี่ไฟล์จากโฟลเดอร์รุ่น:
 
-   - `ServerBotTracker-Setup.exe`
-   - `ServerBotTracker-portable.zip`
+   - `FKPServerMonitor-Setup.exe`
+   - `FKPServerMonitor-portable.zip`
+   - `update-fkp.json`
    - `update.json`
 
 6. ใส่รายละเอียดรุ่น ตรวจสอบอีกครั้ง แล้วเผยแพร่เป็นรุ่นปกติและกำหนดให้เป็น Latest
+
+`update-fkp.json` ใช้สำหรับ FKP Server Monitor ตั้งแต่รุ่น 1.7 ส่วน `update.json` คงข้อมูลรุ่น 1.6.0 เดิมจาก `tools/legacy-update.json` เพื่อให้โปรแกรมชื่อเดิมยังตรวจอัปเดตได้อย่างถูกต้อง ห้ามนำ manifest ใหม่ไปแทนไฟล์สำหรับรุ่นเก่า เพราะชื่อ EXE และชื่อผลิตภัณฑ์ที่รุ่นเก่ายอมรับต่างกัน ผู้ใช้ชื่อเดิมต้องเปิด Setup ใหม่หนึ่งครั้ง โดยรายการเซิร์ฟเวอร์เดิมยังคงอยู่ หลังจากนั้นใช้ระบบอัปเดตอัตโนมัติของ FKP Server Monitor ได้ตามปกติ
 
 ห้ามนำโฟลเดอร์โครงการ ข้อมูลผู้ใช้ ไฟล์ `servers.json` หรือผลการทดสอบไปแนบ โปรแกรมดาวน์โหลด ZIP ที่มีเฉพาะ EXE และ runtime config สองไฟล์ และตรวจชื่อไฟล์ ขนาด SHA-256 ชื่อผลิตภัณฑ์ และหมายเลขรุ่นก่อนติดตั้ง
 
@@ -68,9 +71,9 @@ workflow ใน `.github/workflows/release.yml` จะ build, package และ 
 เมื่อเจ้าของมีใบรับรอง code-signing ที่เชื่อถือได้อยู่ใน Certificate Store สามารถใช้ `tools/Sign.ps1` เซ็น EXE โปรแกรม **ก่อน Package** แล้วเซ็น EXE ตัวติดตั้ง **หลัง Package** ได้ ตัวอย่าง:
 
 ```powershell
-.\tools\Sign.ps1 -CertificateThumbprint '<thumbprint>' -Files '.\release\ServerBotTracker.exe'
+.\tools\Sign.ps1 -CertificateThumbprint '<thumbprint>' -Files '.\release\FKPServerMonitor.exe'
 .\tools\Package.ps1 -Notes 'รายละเอียดรุ่น'
-.\tools\Sign.ps1 -CertificateThumbprint '<thumbprint>' -Files '.\release\publish\v1.6.0\ServerBotTracker-Setup.exe'
+.\tools\Sign.ps1 -CertificateThumbprint '<thumbprint>' -Files '.\release\publish\v1.7.0\FKPServerMonitor-Setup.exe'
 ```
 
 ให้แจกตัวติดตั้งจากโฟลเดอร์รุ่นที่เซ็นแล้ว และทดสอบแพ็กเกจใหม่เสมอ ไม่มีการสร้างหรือซื้อใบรับรองแทนเจ้าของในงานนี้

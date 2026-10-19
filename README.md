@@ -1,12 +1,12 @@
-# Server Bot Tracker
+# FKP Server Monitor
 
 A Thai Windows dashboard for checking multiple servers with ping. Add a name and IP/hostname, then read the green **ผ่าน** or red **ไม่ผ่าน** result. No service-port setup or report export.
 
 ## Run
 
-Download the [Windows installer](https://github.com/kumatech112/Server_Bot_Tracker/releases/latest/download/ServerBotTracker-Setup.exe) or [portable ZIP](https://github.com/kumatech112/Server_Bot_Tracker/releases/latest/download/ServerBotTracker-portable.zip) from the [official GitHub Releases](https://github.com/kumatech112/Server_Bot_Tracker/releases/latest).
+Download the [Windows installer](https://github.com/kumatech112/Server_Bot_Tracker/releases/latest/download/FKPServerMonitor-Setup.exe) or [portable ZIP](https://github.com/kumatech112/Server_Bot_Tracker/releases/latest/download/FKPServerMonitor-portable.zip) from the [official GitHub Releases](https://github.com/kumatech112/Server_Bot_Tracker/releases/latest).
 
-For a standard installation, open `release/ServerBotTracker-Setup.exe`. It defaults to Program Files, installs for everyone on the computer, and creates a common Start menu shortcut and Control Panel entry. Windows requests administrator approval when installation begins. The dashboard runs with normal user permissions. The portable option remains: double-click `release/ServerBotTracker.exe` and keep its `.exe.config` beside it. Requires Windows with .NET Framework 4.8 or newer. No Python, SDK or terminal is needed to run the app.
+For a standard installation, open `release/FKPServerMonitor-Setup.exe`. It defaults to Program Files, installs for everyone on the computer, and creates a common Start menu shortcut and Control Panel entry. Windows requests administrator approval when installation begins. The dashboard runs with normal user permissions. The portable option remains: double-click `release/FKPServerMonitor.exe` and keep its `.exe.config` beside it. Requires Windows with .NET Framework 4.8 or newer. No Python, SDK or terminal is needed to run the app.
 
 - Add, edit, delete or paste multiple server addresses.
 - Check all entries or selected rows; search by name or host.
@@ -19,7 +19,7 @@ One ICMP echo request is sent per server per cycle, using the same protocol as o
 ## Project layout
 
 ```text
-Server_Bot_Tracker/
+FKP Server Monitor/
   src/                 Complete application source
   assets/              Original product icons embedded during build
   docs/                Thai guide, data flow and verification
@@ -47,7 +47,7 @@ The public source and distribution repository is `kumatech112/Server_Bot_Tracker
 - Notifications are retained in `notifications.json` beside the user's settings, with a 100-item history. A damaged inbox falls back to memory without replacing the original.
 - An unreachable release source never stops ping monitoring. Server lists and alert contents are not uploaded to the release channel.
 
-Automatic downloads and local server alerts can be toggled in the Thai notification/update dialogs. Windows may suppress tray popups; inbox messages remain available. Version 1.1 users must install 1.2 once to gain the updater. The current installer is unsigned; Windows publisher signing is a separate owner-supplied certificate step.
+Automatic downloads and local server alerts can be toggled in the Thai notification/update dialogs. Windows may suppress tray popups; inbox messages remain available. Users of Server Bot Tracker 1.6 and earlier must run the renamed Setup once; subsequent updates use the FKP Server Monitor channel. The current installer is unsigned; Windows publisher signing is a separate owner-supplied certificate step.
 
 Operator instructions: [Thai publishing guide](docs/RELEASES.th.md). A code commit by itself does not publish an update.
 
@@ -55,9 +55,9 @@ Operator instructions: [Thai publishing guide](docs/RELEASES.th.md). A code comm
 
 The supplied robot icon is embedded in the application, setup and uninstall EXEs, and appears in the dashboard, window/taskbar icons, tray and Start menu shortcut. Dialogs use the same product icon. The existing light/blue colors and ping-only layout remain.
 
-Setup follows a classic wizard layout with blue robot artwork, white pages and standard Next/Back/Cancel buttons: welcome, **choose installation folder**, confirmation, progress and completion. Click **เรียกดู... (Browse)** and choose a drive or parent folder: Setup adds `ServerBotTracker` and creates it during installation. Choosing D: gives `D:\ServerBotTracker`. An existing product folder is retained without appending another copy. A typed full custom path is also supported; typing a drive root adds the product folder. Confirmation shows the final path before file writes. Setup remembers the machine installation path. A matching uninstall wizard opens from **Control Panel > Programs and Features > Server Bot Tracker > Uninstall/Change** or the installed **Uninstall.exe**. Both routes request administrator approval before changing a machine installation.
+Setup follows a classic wizard layout with blue robot artwork, white pages and standard Next/Back/Cancel buttons: welcome, **choose installation folder**, confirmation, progress and completion. Click **เรียกดู... (Browse)** and choose a drive or parent folder: Setup adds `FKP Server Monitor` and creates it during installation. Choosing D: gives `D:\FKP Server Monitor`. An existing product folder is retained without appending another copy. A typed full custom path is also supported; typing a drive root adds the product folder. Confirmation shows the final path before file writes. Setup remembers the machine installation path. A matching uninstall wizard opens from **Control Panel > Programs and Features > FKP Server Monitor > Uninstall/Change** or the installed **Uninstall.exe**. Both routes request administrator approval before changing a machine installation.
 
-The default for a first install is `%ProgramFiles%\ServerBotTracker`, normally `C:\Program Files\ServerBotTracker`. Registration is in HKLM and the shortcut is in the common Start menu. After a successful machine install, the original user's older per-user registration, shortcut and known program files are removed using the reversible removal engine; unrelated files and settings remain. A legacy-cleanup obstruction is reported as a completion notice while retaining the old copy. A registration belonging to a different target is preserved during removal.
+The default for a first install is `%ProgramFiles%\FKP Server Monitor`, normally `C:\Program Files\FKP Server Monitor`. Registration is in HKLM and the shortcut is in the common Start menu. After a successful machine install, the original user's older per-user registration, shortcut and known program files are removed using the reversible removal engine; unrelated files and settings remain. A legacy-cleanup obstruction is reported as a completion notice while retaining the old copy. A registration belonging to a different target is preserved during removal.
 
 The removal engine checks all known program files and the owned shortcut, stages reversible file moves, and backs up registration values. A later failure restores moved files and metadata. Once removal has committed, a temporary-cleanup problem is a completion notice rather than a misleading uninstall failure. Server lists, settings and unrelated files remain. Error details can be scrolled and copied.
 
@@ -94,3 +94,9 @@ DNS and ping each receive one timeout budget; hostname checks may take about twi
 Results represent the latest completed check and its timestamp. Stop preserves earlier results for unfinished entries.
 
 See [Thai guide](docs/USAGE.th.md), [data flow and function index](docs/ARCHITECTURE.md), and [verification](docs/VERIFICATION.md).
+
+## Product rename (1.7)
+
+The app, installer, executable, default installation folder, shortcuts and Control Panel display name are now FKP Server Monitor. Existing custom installation paths are remembered. Server lists and inbox history keep their existing storage location. The GitHub repository URL and internal compatibility identifiers remain stable.
+
+The new updater uses update-fkp.json. The older update.json feed remains pinned to the compatible 1.6.0 package. Install the new Setup once to migrate from the former name. See [rename details and changed functions](docs/RENAME.md).

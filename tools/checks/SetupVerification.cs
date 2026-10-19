@@ -19,12 +19,13 @@ internal static class SetupVerification
 {
     public static void Run(string root, Action<bool, string> assert)
     {
-        string setupPath = Path.Combine(root, "ServerBotTracker-Setup.exe");
+        string setupPath = Path.Combine(root, "FKPServerMonitor-Setup.exe");
         Assembly setupAssembly = Assembly.LoadFrom(setupPath);
-        VerifyBranding(typeof(MainForm).Assembly, Path.Combine(root, "ServerBotTracker.exe"), root, "application", assert);
+        VerifyBranding(typeof(MainForm).Assembly, Path.Combine(root, "FKPServerMonitor.exe"), root, "application", assert);
         VerifyBranding(setupAssembly, setupPath, root, "setup", assert);
         assert(setupAssembly.GetName().Version == typeof(MainForm).Assembly.GetName().Version, "Installer and application versions match");
         InstallationScopeVerification.Run(setupAssembly, root, assert);
+        RenameVerification.Run(setupAssembly, root, assert);
         VerifyInstallFlow(setupAssembly, root, assert);
         VerifyRetry(setupAssembly, root, assert);
         VerifyCustomInstallation(setupAssembly, root, assert);
@@ -95,7 +96,7 @@ internal static class SetupVerification
         ApartmentState apartment = ApartmentState.Unknown;
         int operations = 0;
         string receivedTarget = null;
-        string selectedTarget = Path.Combine(root, "โฟลเดอร์ที่เลือก", "Server Bot Tracker");
+        string selectedTarget = Path.Combine(root, "โฟลเดอร์ที่เลือก", "FKP Server Monitor");
         using (var release = new ManualResetEventSlim(false))
         using (Form form = CreateForm(setupAssembly, root, delegate(string selected)
         {
@@ -198,8 +199,8 @@ internal static class SetupVerification
         MethodInfo remembered = locations.GetMethod("ReadRemembered");
         MethodInfo destination = locations.GetMethod("ForDestination");
         MethodInfo browseSelection = locations.GetMethod("ForBrowseSelection");
-        string target = Path.Combine(root, "ติดตั้งภาษาไทย", "Server Bot Tracker");
-        string second = Path.Combine(root, "ตำแหน่งใหม่", "Server Bot Tracker");
+        string target = Path.Combine(root, "ติดตั้งภาษาไทย", "FKP Server Monitor");
+        string second = Path.Combine(root, "ตำแหน่งใหม่", "FKP Server Monitor");
         string shortcut = Path.Combine(root, "custom-install.lnk");
         string registry = @"Software\Kuma\ServerBotTrackerDevelopment\" + Path.GetFileName(root) + "-custom";
         MethodInfo install = setup.GetMethod("InstallAt", BindingFlags.NonPublic | BindingFlags.Static);
@@ -213,10 +214,10 @@ internal static class SetupVerification
                 catch (TargetInvocationException exception) { if (!(exception.InnerException is IOException)) throw; }
             }
             assert(rejectsInvalid, "Destination validation rejects blank, relative, drive/share roots and invalid paths");
-            assert((string)normalize.Invoke(null, new object[] { @"\\server\share\Server Bot Tracker\" }) == @"\\server\share\Server Bot Tracker", "An absolute UNC subfolder is retained without writing to the share");
-            assert((string)destination.Invoke(null, new object[] { @"D:\" }) == @"D:\ServerBotTracker" && (string)destination.Invoke(null, new object[] { "D:" }) == @"D:\ServerBotTracker", "Choosing a drive creates a product subfolder path instead of installing into the drive root");
+            assert((string)normalize.Invoke(null, new object[] { @"\\server\share\FKP Server Monitor\" }) == @"\\server\share\FKP Server Monitor", "An absolute UNC subfolder is retained without writing to the share");
+            assert((string)destination.Invoke(null, new object[] { @"D:\" }) == @"D:\FKP Server Monitor" && (string)destination.Invoke(null, new object[] { "D:" }) == @"D:\FKP Server Monitor", "Choosing a drive creates a product subfolder path instead of installing into the drive root");
             string parent = Path.Combine(root, "เลือกโฟลเดอร์หลัก");
-            string productFolder = Path.Combine(parent, "ServerBotTracker");
+            string productFolder = Path.Combine(parent, "FKP Server Monitor");
             assert((string)browseSelection.Invoke(null, new object[] { parent }) == productFolder && (string)browseSelection.Invoke(null, new object[] { productFolder }) == productFolder, "Browse adds the product folder once and preserves an already selected product folder");
             string collision = Path.Combine(root, "unrelated-install");
             Directory.CreateDirectory(collision);
@@ -225,13 +226,13 @@ internal static class SetupVerification
             bool rejected = false;
             try { install.Invoke(null, new object[] { collision, shortcut, registry }); }
             catch (TargetInvocationException exception) { rejected = exception.InnerException is IOException; }
-            assert(rejected && File.ReadAllText(unrelated) == "Unrelated program" && !File.Exists(Path.Combine(collision, "ServerBotTracker.exe")) && !File.Exists(shortcut), "Selecting another program's files fails before replacement or registration");
+            assert(rejected && File.ReadAllText(unrelated) == "Unrelated program" && !File.Exists(Path.Combine(collision, "FKPServerMonitor.exe")) && !File.Exists(shortcut), "Selecting another program's files fails before replacement or registration");
             install.Invoke(null, new object[] { target + Path.DirectorySeparatorChar, shortcut, registry });
-            using (Stream expected = File.OpenRead(Path.Combine(root, "ServerBotTracker.exe")))
-            using (Stream actual = File.OpenRead(Path.Combine(target, "ServerBotTracker.exe")))
-                assert(Hash(expected) == Hash(actual) && File.Exists(Path.Combine(target, "ServerBotTracker.exe.config")) && File.Exists(Path.Combine(target, "Uninstall.exe")), "The real installer extracts its payload into the exact selected Thai folder with spaces");
+            using (Stream expected = File.OpenRead(Path.Combine(root, "FKPServerMonitor.exe")))
+            using (Stream actual = File.OpenRead(Path.Combine(target, "FKPServerMonitor.exe")))
+                assert(Hash(expected) == Hash(actual) && File.Exists(Path.Combine(target, "FKPServerMonitor.exe.config")) && File.Exists(Path.Combine(target, "Uninstall.exe")), "The real installer extracts its payload into the exact selected Thai folder with spaces");
             using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registry))
-                assert((string)key.GetValue("InstallLocation") == target && (string)key.GetValue("UninstallString") == "\"" + Path.Combine(target, "Uninstall.exe") + "\" --uninstall" && (string)key.GetValue("DisplayIcon") == Path.Combine(target, "ServerBotTracker.exe"), "Control Panel metadata uses the custom folder and correctly quotes its uninstall command");
+                assert((string)key.GetValue("InstallLocation") == target && (string)key.GetValue("UninstallString") == "\"" + Path.Combine(target, "Uninstall.exe") + "\" --uninstall" && (string)key.GetValue("DisplayIcon") == Path.Combine(target, "FKPServerMonitor.exe"), "Control Panel metadata uses the custom folder and correctly quotes its uninstall command");
             assert((string)remembered.Invoke(null, new object[] { registry }) == target, "A later Setup run remembers the registered custom installation folder");
             object shortcutInstance = new DesktopShortcut.ShellLink();
             try
@@ -245,21 +246,21 @@ internal static class SetupVerification
                 link.GetPath(executable, executable.Capacity, IntPtr.Zero, 0);
                 link.GetWorkingDirectory(working, working.Capacity);
                 link.GetIconLocation(icon, icon.Capacity, out iconIndex);
-                assert(String.Equals(executable.ToString(), Path.Combine(target, "ServerBotTracker.exe"), StringComparison.OrdinalIgnoreCase) && String.Equals(working.ToString(), target, StringComparison.OrdinalIgnoreCase) && iconIndex == 0 && String.Equals(icon.ToString(), executable.ToString(), StringComparison.OrdinalIgnoreCase), "The actual Start menu shortcut retains the Unicode executable, working folder and product icon");
+                assert(String.Equals(executable.ToString(), Path.Combine(target, "FKPServerMonitor.exe"), StringComparison.OrdinalIgnoreCase) && String.Equals(working.ToString(), target, StringComparison.OrdinalIgnoreCase) && iconIndex == 0 && String.Equals(icon.ToString(), executable.ToString(), StringComparison.OrdinalIgnoreCase), "The actual Start menu shortcut retains the Unicode executable, working folder and product icon");
             }
             finally { Marshal.FinalReleaseComObject(shortcutInstance); }
             string stage = Path.Combine(root, "custom-update-stage");
             Directory.CreateDirectory(stage);
             File.Copy(Path.Combine(root, "published-update.json"), Path.Combine(stage, "manifest.json"));
             File.Copy(Path.Combine(root, "published-package.zip"), Path.Combine(stage, "package.zip"));
-            File.Copy(Path.Combine(root, "OldVersion.exe"), Path.Combine(target, "ServerBotTracker.exe"), true);
+            File.Copy(Path.Combine(root, "OldVersion.exe"), Path.Combine(target, "FKPServerMonitor.exe"), true);
             File.WriteAllText(Path.Combine(target, "servers.json"), "Preserve custom folder data");
             UpdateInstaller.Apply(stage, target);
-            assert(FileVersionInfo.GetVersionInfo(Path.Combine(target, "ServerBotTracker.exe")).FileVersion == ReleaseChannel.CurrentVersion.ToString() && File.ReadAllText(Path.Combine(target, "servers.json")) == "Preserve custom folder data" && File.Exists(Path.Combine(target, "Uninstall.exe")), "Automatic update applies in the custom folder and preserves the uninstaller and unrelated data");
+            assert(FileVersionInfo.GetVersionInfo(Path.Combine(target, "FKPServerMonitor.exe")).FileVersion == ReleaseChannel.CurrentVersion.ToString() && File.ReadAllText(Path.Combine(target, "servers.json")) == "Preserve custom folder data" && File.Exists(Path.Combine(target, "Uninstall.exe")), "Automatic update applies in the custom folder and preserves the uninstaller and unrelated data");
             install.Invoke(null, new object[] { second, shortcut, registry });
             remove.Invoke(null, new object[] { target, shortcut, registry });
             using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registry))
-                assert(key != null && (string)key.GetValue("InstallLocation") == second && File.Exists(shortcut) && File.Exists(Path.Combine(second, "ServerBotTracker.exe")), "An old copy's removal preserves the newer installation's registry entry and shortcut");
+                assert(key != null && (string)key.GetValue("InstallLocation") == second && File.Exists(shortcut) && File.Exists(Path.Combine(second, "FKPServerMonitor.exe")), "An old copy's removal preserves the newer installation's registry entry and shortcut");
             remove.Invoke(null, new object[] { second, shortcut, registry });
             using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registry))
                 assert(key == null && !File.Exists(shortcut) && !Directory.Exists(second) && File.ReadAllText(Path.Combine(target, "servers.json")) == "Preserve custom folder data", "Custom-folder uninstall removes its own files and registration while keeping unrelated data");
@@ -273,7 +274,7 @@ internal static class SetupVerification
         string shortcut = Path.Combine(root, "uninstall-fixture.lnk");
         string registry = @"Software\Kuma\ServerBotTrackerDevelopment\" + Path.GetFileName(root);
         Directory.CreateDirectory(target);
-        foreach (string file in new[] { "ServerBotTracker.exe", "ServerBotTracker.exe.config", "Uninstall.exe" })
+        foreach (string file in new[] { "FKPServerMonitor.exe", "FKPServerMonitor.exe.config", "Uninstall.exe" })
             File.WriteAllText(Path.Combine(target, file), "Owned fixture file");
         File.WriteAllText(Path.Combine(target, "servers.json"), "Preserved fixture settings");
         Directory.CreateDirectory(Path.Combine(target, "user-folder"));
@@ -295,7 +296,7 @@ internal static class SetupVerification
         catch (TargetInvocationException exception) { rootRejected = exception.InnerException is IOException; }
         assert(rootRejected && File.Exists(shortcut), "Uninstaller refuses a volume root before deleting files or registration");
         Exception failure = null;
-        FileStream locked = File.Open(Path.Combine(target, "ServerBotTracker.exe.config"), FileMode.Open, FileAccess.Read, FileShare.None);
+        FileStream locked = File.Open(Path.Combine(target, "FKPServerMonitor.exe.config"), FileMode.Open, FileAccess.Read, FileShare.None);
         try
         {
             using (var form = (Form)Activator.CreateInstance(setupAssembly.GetType("SetupForm", true), new object[] { target, uninstall, true }))
@@ -307,23 +308,23 @@ internal static class SetupVerification
                     {
                         Capture(form, root, "uninstall-welcome.png");
                         action.PerformClick();
-                        assert(action.Text == "ถอนการติดตั้ง" && File.Exists(Path.Combine(target, "ServerBotTracker.exe")), "Uninstall wizard requires confirmation before removal");
+                        assert(action.Text == "ถอนการติดตั้ง" && File.Exists(Path.Combine(target, "FKPServerMonitor.exe")), "Uninstall wizard requires confirmation before removal");
                         Capture(form, root, "uninstall-ready.png");
                         action.PerformClick();
                         WaitUntilEnabled(action);
                         using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registry))
-                            assert(action.Text == "ลองอีกครั้ง" && key != null && File.Exists(Path.Combine(target, "ServerBotTracker.exe")) && File.Exists(Path.Combine(target, "ServerBotTracker.exe.config")) && File.Exists(Path.Combine(target, "Uninstall.exe")) && File.Exists(shortcut), "A locked second file blocks uninstall before any product file, shortcut or registration disappears");
+                            assert(action.Text == "ลองอีกครั้ง" && key != null && File.Exists(Path.Combine(target, "FKPServerMonitor.exe")) && File.Exists(Path.Combine(target, "FKPServerMonitor.exe.config")) && File.Exists(Path.Combine(target, "Uninstall.exe")) && File.Exists(shortcut), "A locked second file blocks uninstall before any product file, shortcut or registration disappears");
                         locked.Dispose();
                         locked = null;
                         action.PerformClick();
                         WaitUntilEnabled(action);
                         using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registry))
-                            assert(action.Text == "เสร็จสิ้น" && key == null && !File.Exists(shortcut) && !File.Exists(Path.Combine(target, "Uninstall.exe")) && !File.Exists(Path.Combine(target, "ServerBotTracker.exe")) && !File.Exists(Path.Combine(target, "ServerBotTracker.exe.config")), "Uninstall retry removes only product files, shortcut and its isolated registration");
+                            assert(action.Text == "เสร็จสิ้น" && key == null && !File.Exists(shortcut) && !File.Exists(Path.Combine(target, "Uninstall.exe")) && !File.Exists(Path.Combine(target, "FKPServerMonitor.exe")) && !File.Exists(Path.Combine(target, "FKPServerMonitor.exe.config")), "Uninstall retry removes only product files, shortcut and its isolated registration");
                         assert(File.ReadAllText(Path.Combine(target, "servers.json")) == "Preserved fixture settings" && File.ReadAllText(Path.Combine(target, "user-folder", "keep.txt")) == "Unrelated content", "Uninstall preserves user settings and unrelated files and directories");
                         assert(!form.Controls.Find("LaunchAfterSetup", true).Single().Visible, "Uninstall completion never offers to launch the removed app");
                         string emptyTarget = Path.Combine(root, "uninstall-empty-fixture");
                         Directory.CreateDirectory(emptyTarget);
-                        File.WriteAllText(Path.Combine(emptyTarget, "ServerBotTracker.exe"), "Owned fixture file");
+                        File.WriteAllText(Path.Combine(emptyTarget, "FKPServerMonitor.exe"), "Owned fixture file");
                         remove.Invoke(null, new object[] { emptyTarget, shortcut, registry });
                         assert(!Directory.Exists(emptyTarget), "Uninstall removes an installation directory when no unrelated files remain");
                         Capture(form, root, "uninstall-complete.png");
@@ -345,7 +346,7 @@ internal static class SetupVerification
     private static void VerifyUninstallFailures(Assembly assembly, string root, Action<bool, string> assert)
     {
         MethodInfo remove = assembly.GetType("Setup", true).GetMethod("RemoveInstallation", BindingFlags.NonPublic | BindingFlags.Static);
-        string[] names = { "ServerBotTracker.exe", "ServerBotTracker.exe.config", "Uninstall.exe" };
+        string[] names = { "FKPServerMonitor.exe", "FKPServerMonitor.exe.config", "Uninstall.exe" };
         foreach (string lockedName in new[] { "Uninstall.exe", "shortcut.lnk", "move-denied" })
         {
             string target = Path.Combine(root, "removal-rollback-" + lockedName);
@@ -362,7 +363,7 @@ internal static class SetupVerification
             FileStream locked = null;
             DirectorySecurity directorySecurity = null;
             FileSecurity fileSecurity = null;
-            string deniedFile = Path.Combine(target, "ServerBotTracker.exe.config");
+            string deniedFile = Path.Combine(target, "FKPServerMonitor.exe.config");
             try
             {
                 if (lockedName == "move-denied")
@@ -418,7 +419,7 @@ internal static class SetupVerification
         string target = Path.Combine(root, "removal-cleanup-notice");
         string shortcut = Path.Combine(root, "removal-cleanup-notice.lnk");
         string registry = @"Software\Kuma\ServerBotTrackerDevelopment\" + Path.GetFileName(root) + "-cleanup";
-        string[] names = { "ServerBotTracker.exe", "ServerBotTracker.exe.config", "Uninstall.exe" };
+        string[] names = { "FKPServerMonitor.exe", "FKPServerMonitor.exe.config", "Uninstall.exe" };
         Directory.CreateDirectory(target);
         foreach (string name in names) File.WriteAllText(Path.Combine(target, name), "Owned fixture file");
         File.WriteAllText(shortcut, "Owned fixture shortcut");
@@ -472,10 +473,10 @@ internal static class SetupVerification
 
     private static void VerifyUninstallEntryPoint(string root, Action<bool, string> assert)
     {
-        string target = Path.Combine(root, "ถอนการติดตั้งโดยตรง", "Server Bot Tracker");
+        string target = Path.Combine(root, "ถอนการติดตั้งโดยตรง", "FKP Server Monitor");
         Directory.CreateDirectory(target);
         string uninstaller = Path.Combine(target, "Uninstall.exe");
-        File.Copy(Path.Combine(root, "ServerBotTracker-Setup.exe"), uninstaller);
+        File.Copy(Path.Combine(root, "FKPServerMonitor-Setup.exe"), uninstaller);
         File.WriteAllText(Path.Combine(target, "servers.json"), "Keep direct-launch fixture data");
         foreach (string arguments in new[] { String.Empty, "--uninstall" })
         {
@@ -497,7 +498,7 @@ internal static class SetupVerification
                             {
                                 string path = child["ExecutablePath"] as string;
                                 string command = child["CommandLine"] as string;
-                                if (path != null && command != null && Path.GetFileName(path).StartsWith("ServerBotTracker-uninstall-", StringComparison.OrdinalIgnoreCase) && command.Contains("--uninstall-wizard") && command.Contains("\"" + target + "\""))
+                                if (path != null && command != null && Path.GetFileName(path).StartsWith("FKPServerMonitor-uninstall-", StringComparison.OrdinalIgnoreCase) && command.Contains("--uninstall-wizard") && command.Contains("\"" + target + "\""))
                                 {
                                     helperPath = path;
                                     targetForwarded = true;
@@ -518,13 +519,13 @@ internal static class SetupVerification
                         while (!helper.HasExited && elapsed.ElapsedMilliseconds < 5000)
                         {
                             helper.Refresh();
-                            if (helper.MainWindowTitle.Contains("Server Bot Tracker") && helper.MainWindowTitle.Contains("ถอนการติดตั้ง")) { uninstallWindow = true; break; }
+                            if (helper.MainWindowTitle.Contains("FKP Server Monitor") && helper.MainWindowTitle.Contains("ถอนการติดตั้ง")) { uninstallWindow = true; break; }
                             Thread.Sleep(100);
                         }
                     }
                     assert(targetForwarded && launcherExited && launcher.ExitCode == 0 && uninstallWindow, arguments.Length == 0 ? "Double-clicking the real Uninstall.exe opens the temporary uninstall wizard for its own Thai folder" : "Control Panel's --uninstall route still opens the same uninstall wizard");
                     bool closed = helper.CloseMainWindow() && helper.WaitForExit(5000);
-                    assert(closed && helper.ExitCode == 0 && File.Exists(uninstaller) && !File.Exists(Path.Combine(target, "ServerBotTracker.exe")) && File.ReadAllText(Path.Combine(target, "servers.json")) == "Keep direct-launch fixture data", "Cancelling the real uninstall welcome screen exits cleanly without installing or removing fixture files");
+                    assert(closed && helper.ExitCode == 0 && File.Exists(uninstaller) && !File.Exists(Path.Combine(target, "FKPServerMonitor.exe")) && File.ReadAllText(Path.Combine(target, "servers.json")) == "Keep direct-launch fixture data", "Cancelling the real uninstall welcome screen exits cleanly without installing or removing fixture files");
                 }
                 finally
                 {

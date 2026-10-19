@@ -88,10 +88,10 @@ namespace ServerBotTracker
     public sealed class ReleaseChannel : IDisposable
     {
         public const string OfficialRepository = "kumatech112/Server_Bot_Tracker";
-        public const string PackageName = "ServerBotTracker-portable.zip";
+        public const string PackageName = "FKPServerMonitor-portable.zip";
         public const long MaximumPackageBytes = 20 * 1024 * 1024;
-        public const string ApplicationFile = "ServerBotTracker.exe";
-        public const string ConfigurationFile = "ServerBotTracker.exe.config";
+        public const string ApplicationFile = ProductIdentity.ApplicationFile;
+        public const string ConfigurationFile = ProductIdentity.ConfigurationFile;
         private readonly HttpClient client;
         private readonly string repository;
 
@@ -104,7 +104,7 @@ namespace ServerBotTracker
             repository = repositoryName;
             client = new HttpClient(handler);
             client.Timeout = TimeSpan.FromSeconds(45);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("ServerBotTracker/" + CurrentVersion);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("FKPServerMonitor/" + CurrentVersion);
         }
 
         public static Version CurrentVersion
@@ -122,7 +122,7 @@ namespace ServerBotTracker
 
         public async Task<ReleaseManifest> GetLatestAsync(CancellationToken cancellation)
         {
-            ReleaseManifest manifest = await ReadJsonAsync<ReleaseManifest>("/releases/latest/download/update.json", cancellation).ConfigureAwait(false);
+            ReleaseManifest manifest = await ReadJsonAsync<ReleaseManifest>("/releases/latest/download/update-fkp.json", cancellation).ConfigureAwait(false);
             manifest.Validate();
             return manifest;
         }
@@ -241,7 +241,7 @@ namespace ServerBotTracker
                 }
             }
             var information = System.Diagnostics.FileVersionInfo.GetVersionInfo(Path.Combine(destination, ApplicationFile));
-            if (ParseVersion(information.FileVersion) != ParseVersion(manifest.Version) || information.ProductName != "Server Bot Tracker")
+            if (ParseVersion(information.FileVersion) != ParseVersion(manifest.Version) || information.ProductName != "FKP Server Monitor")
                 throw new InvalidDataException("โปรแกรมในชุดอัปเดตไม่ตรงกับรุ่นที่ประกาศ");
         }
 

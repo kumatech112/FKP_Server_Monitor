@@ -40,7 +40,7 @@ namespace ServerBotTracker
             store = configurationStore;
             configuration = store.Load();
             Branding.ApplyTo(this);
-            Text = "ตรวจสอบเซิร์ฟเวอร์ | Server Bot Tracker";
+            Text = "ตรวจสอบเซิร์ฟเวอร์ | FKP Server Monitor";
             Font = new Font("Tahoma", 10F);
             ForeColor = Theme.Ink;
             BackColor = Theme.Background;

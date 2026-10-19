@@ -45,7 +45,7 @@ namespace ServerBotTracker
                     throw new InvalidDataException("Update worker must run beside its prepared job");
                 job = JsonData.Read<UpdateJob>(jobPath);
                 string existing = Path.Combine(job.TargetDirectory, ReleaseChannel.ApplicationFile);
-                restartAllowed = File.Exists(existing) && FileVersionInfo.GetVersionInfo(existing).ProductName == "Server Bot Tracker";
+                restartAllowed = File.Exists(existing) && FileVersionInfo.GetVersionInfo(existing).ProductName == "FKP Server Monitor";
                 if (!restartAllowed) throw new InvalidDataException("ไม่พบโปรแกรมเดิมที่ถูกต้องในตำแหน่งอัปเดต");
                 try
                 {
@@ -133,7 +133,7 @@ namespace ServerBotTracker
             if (!File.Exists(executable))
                 throw new InvalidDataException("ไม่พบโปรแกรมเดิมในตำแหน่งที่ต้องการอัปเดต");
             var current = FileVersionInfo.GetVersionInfo(executable);
-            if (current.ProductName != "Server Bot Tracker" || ReleaseChannel.ParseVersion(current.FileVersion) >= ReleaseChannel.ParseVersion(manifest.Version))
+            if (current.ProductName != "FKP Server Monitor" || ReleaseChannel.ParseVersion(current.FileVersion) >= ReleaseChannel.ParseVersion(manifest.Version))
                 throw new InvalidDataException("ตำแหน่งโปรแกรมหรือหมายเลขรุ่นไม่ถูกต้อง");
             string payload = Path.Combine(stage, "verified-" + Guid.NewGuid().ToString("N"));
             ReleaseChannel.ExtractPackage(Path.Combine(stage, "package.zip"), payload, manifest);

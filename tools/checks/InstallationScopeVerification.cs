@@ -11,10 +11,10 @@ internal static class InstallationScopeVerification
 {
     public static void Run(Assembly setup, string root, Action<bool, string> assert)
     {
-        string expected = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ServerBotTracker");
+        string expected = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "FKP Server Monitor");
         string actual = (string)setup.GetType("InstallLocation", true).GetProperty("DefaultDirectory").GetValue(null, null);
         string shortcut = (string)setup.GetType("InstallationScope", true).GetProperty("MachineShortcut").GetValue(null, null);
-        assert(actual == expected && shortcut == Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), "Server Bot Tracker.lnk"), "Standard installation defaults to Program Files and the all-users Start menu");
+        assert(actual == expected && shortcut == Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), "FKP Server Monitor.lnk"), "Standard installation defaults to Program Files and the all-users Start menu");
         VerifyPreview(setup, root, actual, assert);
         VerifyElevationJob(root, assert);
         assert(UpdateInstaller.RequiresElevation(expected) && !UpdateInstaller.RequiresElevation(Path.Combine(root, "ordinary-user-install")), "Protected Program Files updates request elevation while ordinary user-folder updates keep their current flow");
@@ -91,7 +91,7 @@ internal static class InstallationScopeVerification
         {
             engine.GetMethod("InstallAtScope", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { directory, shortcut, Registry.LocalMachine, registry });
             using (RegistryKey key = Registry.LocalMachine.OpenSubKey(registry))
-                assert(File.Exists(Path.Combine(directory, "ServerBotTracker.exe")) && File.Exists(shortcut) && key != null && (string)key.GetValue("InstallLocation") == directory, "The administrator runner performs a real Program Files install with a common shortcut and isolated HKLM registration");
+                assert(File.Exists(Path.Combine(directory, "FKPServerMonitor.exe")) && File.Exists(shortcut) && key != null && (string)key.GetValue("InstallLocation") == directory, "The administrator runner performs a real Program Files install with a common shortcut and isolated HKLM registration");
             engine.GetMethod("RemoveAtScope", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { directory, shortcut, Registry.LocalMachine, registry });
             using (RegistryKey key = Registry.LocalMachine.OpenSubKey(registry))
                 assert(!Directory.Exists(directory) && !File.Exists(shortcut) && key == null, "Machine uninstall removes only its isolated Program Files installation, common shortcut and HKLM test key");
@@ -106,7 +106,7 @@ internal static class InstallationScopeVerification
     private static void VerifyMachineProcesses(Assembly setup, string root, Action<bool, string> assert)
     {
         const string registry = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\KumaServerBotTracker";
-        string shortcut = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), "Server Bot Tracker.lnk");
+        string shortcut = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), "FKP Server Monitor.lnk");
         using (RegistryKey existing = Registry.LocalMachine.OpenSubKey(registry))
             if (existing != null || File.Exists(shortcut)) throw new IOException("CI machine integration requires an empty product registration and shortcut");
         string target = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ServerBotTracker-ProcessVerification-" + Guid.NewGuid().ToString("N"));
@@ -120,8 +120,28 @@ internal static class InstallationScopeVerification
                 assert(key != null && (string)key.GetValue("InstallLocation") == target && File.Exists(shortcut), "Real runas setup process installs a disposable Program Files copy and registers it for all users");
             File.Copy(Path.Combine(root, "OldVersion.exe"), Path.Combine(target, ReleaseChannel.ApplicationFile), true);
             File.WriteAllText(Path.Combine(target, "keep-user-data.txt"), "Keep machine fixture data");
+            bool liveAvailable = true;
+            using (var channel = new ReleaseChannel())
+            {
+                try { channel.GetLatestAsync(System.Threading.CancellationToken.None).GetAwaiter().GetResult(); }
+                catch (System.Net.Http.HttpRequestException error)
+                {
+                    if (ReleaseChannel.CurrentVersion != new Version(1, 7, 0, 0) || !error.Message.Contains("404")) throw;
+                    liveAvailable = false;
+                    Console.WriteLine("SKIP: First 1.7 release has not published update-fkp.json; live official-feed elevation remains unverified. Testing the packaged update in Program Files instead.");
+                }
+            }
             ReleaseManifest applied = null;
-            for (int attempt = 0; attempt < 3 && applied == null; attempt++)
+            if (!liveAvailable)
+            {
+                string stage = Path.Combine(root, "first-renamed-machine-update");
+                Directory.CreateDirectory(stage);
+                File.Copy(Path.Combine(root, "published-update.json"), Path.Combine(stage, "manifest.json"));
+                File.Copy(Path.Combine(root, "published-package.zip"), Path.Combine(stage, "package.zip"));
+                applied = JsonData.Read<ReleaseManifest>(Path.Combine(stage, "manifest.json"));
+                UpdateInstaller.Apply(stage, target);
+            }
+            for (int attempt = 0; liveAvailable && attempt < 3 && applied == null; attempt++)
             {
                 string stage = Path.Combine(root, "live-machine-update-" + Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(stage);
@@ -131,15 +151,15 @@ internal static class InstallationScopeVerification
                     manifest = channel.GetLatestAsync(System.Threading.CancellationToken.None).GetAwaiter().GetResult();
                     using (var stream = File.Create(Path.Combine(stage, "package.zip")))
                     {
-                        var download = (System.Threading.Tasks.Task)typeof(ReleaseChannel).GetMethod("DownloadAsync", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(channel, new object[] { new Uri("https://github.com/" + ReleaseChannel.OfficialRepository + "/releases/download/" + manifest.Tag + "/ServerBotTracker-portable.zip"), stream, manifest.SizeBytes, System.Threading.CancellationToken.None });
+                        var download = (System.Threading.Tasks.Task)typeof(ReleaseChannel).GetMethod("DownloadAsync", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(channel, new object[] { new Uri("https://github.com/" + ReleaseChannel.OfficialRepository + "/releases/download/" + manifest.Tag + "/FKPServerMonitor-portable.zip"), stream, manifest.SizeBytes, System.Threading.CancellationToken.None });
                         download.GetAwaiter().GetResult();
                     }
                 }
                 JsonData.WriteAtomic(Path.Combine(stage, "manifest.json"), manifest);
                 JsonData.WriteAtomic(Path.Combine(stage, "job.json"), new UpdateJob { TargetDirectory = target });
                 string worker = Path.Combine(stage, "UpdateWorker.exe");
-                File.Copy(Path.Combine(root, "ServerBotTracker.exe"), worker);
-                File.Copy(Path.Combine(root, "ServerBotTracker.exe.config"), worker + ".config");
+                File.Copy(Path.Combine(root, "FKPServerMonitor.exe"), worker);
+                File.Copy(Path.Combine(root, "FKPServerMonitor.exe.config"), worker + ".config");
                 string result = Path.Combine(stage, "ServerBotTracker-elevation-" + Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(result);
                 using (RegistryKey key = Registry.LocalMachine.OpenSubKey(registry, true)) key.SetValue("DisplayVersion", "0.9.0.0");
@@ -156,7 +176,7 @@ internal static class InstallationScopeVerification
                 }
             }
             using (RegistryKey key = Registry.LocalMachine.OpenSubKey(registry))
-                assert(applied != null && FileVersionInfo.GetVersionInfo(Path.Combine(target, ReleaseChannel.ApplicationFile)).FileVersion == applied.Version && (string)key.GetValue("DisplayVersion") == applied.Version && File.Exists(Path.Combine(target, "Uninstall.exe")), "Real administrator update process verifies the live official package, replaces protected files and updates HKLM display version");
+                assert(applied != null && FileVersionInfo.GetVersionInfo(Path.Combine(target, ReleaseChannel.ApplicationFile)).FileVersion == applied.Version && (string)key.GetValue("DisplayVersion") == applied.Version && File.Exists(Path.Combine(target, "Uninstall.exe")), liveAvailable ? "Real administrator update process verifies the live official package, replaces protected files and updates HKLM display version" : "Packaged update replaces protected Program Files binaries and updates HKLM metadata before the first renamed public release");
             broker.Invoke(null, new object[] { "--elevated-remove", target });
             installed = false;
             using (RegistryKey key = Registry.LocalMachine.OpenSubKey(registry))
@@ -175,16 +195,16 @@ internal static class InstallationScopeVerification
     {
         string target = Path.Combine(root, "legacy-user-install");
         Directory.CreateDirectory(target);
-        File.Copy(Path.Combine(root, "ServerBotTracker.exe"), Path.Combine(target, "ServerBotTracker.exe"));
-        File.Copy(Path.Combine(root, "ServerBotTracker.exe.config"), Path.Combine(target, "ServerBotTracker.exe.config"));
-        File.Copy(Path.Combine(root, "ServerBotTracker-Setup.exe"), Path.Combine(target, "Uninstall.exe"));
+        File.Copy(Path.Combine(root, "LegacyVersion.exe"), Path.Combine(target, ProductIdentity.LegacyApplicationFile));
+        File.Copy(Path.Combine(root, "FKPServerMonitor.exe.config"), Path.Combine(target, ProductIdentity.LegacyConfigurationFile));
+        File.Copy(Path.Combine(root, "FKPServerMonitor-Setup.exe"), Path.Combine(target, "Uninstall.exe"));
         File.WriteAllText(Path.Combine(target, "keep-settings.json"), "Keep legacy user data");
         string shortcut = Path.Combine(root, "legacy-user-install.lnk");
         File.WriteAllText(shortcut, "Legacy fixture shortcut");
         string registry = @"Software\Kuma\ServerBotTrackerDevelopment\" + Path.GetFileName(root) + "-legacy";
         using (RegistryKey key = Registry.CurrentUser.CreateSubKey(registry))
         {
-            key.SetValue("DisplayName", "Server Bot Tracker");
+            key.SetValue("DisplayName", ProductIdentity.LegacyDisplayName);
             key.SetValue("InstallLocation", target);
         }
         try
@@ -193,7 +213,9 @@ internal static class InstallationScopeVerification
             Action<string, string, string> cleanup = delegate(string directory, string link, string key) { remove.Invoke(null, new object[] { directory, link, key }); };
             string notice = (string)setup.GetType("InstallationScope", true).GetMethod("CleanLegacyRegistration").Invoke(null, new object[] { Path.Combine(root, "new-machine-target"), Registry.CurrentUser, registry, shortcut, cleanup });
             using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registry))
-                assert(String.IsNullOrEmpty(notice) && key == null && !File.Exists(shortcut) && !File.Exists(Path.Combine(target, "Uninstall.exe")) && !File.Exists(Path.Combine(target, "ServerBotTracker.exe")) && File.ReadAllText(Path.Combine(target, "keep-settings.json")) == "Keep legacy user data", "Migration removes the older user registration and owned files while preserving unrelated legacy data");
+                assert(String.IsNullOrEmpty(notice) && key == null && !File.Exists(shortcut) && !File.Exists(Path.Combine(target, "Uninstall.exe"))
+                    && !File.Exists(Path.Combine(target, ProductIdentity.LegacyApplicationFile)) && !File.Exists(Path.Combine(target, ProductIdentity.LegacyConfigurationFile))
+                    && File.ReadAllText(Path.Combine(target, "keep-settings.json")) == "Keep legacy user data", "Migration removes the former product's per-user registration and old filenames while preserving unrelated legacy data");
         }
         finally { Registry.CurrentUser.DeleteSubKeyTree(registry, false); }
     }

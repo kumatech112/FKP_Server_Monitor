@@ -106,11 +106,17 @@ internal static class UpdatesVerification
         string published = Path.Combine(root, "published-update.json");
         if (File.Exists(published))
         {
-            using (var channel = new ReleaseChannel("test/releases", new ResponseHandler { Reply = request => new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(File.ReadAllBytes(published)) } }))
+            string requestedPath = null;
+            using (var channel = new ReleaseChannel("test/releases", new ResponseHandler { Reply = request =>
+            {
+                requestedPath = request.RequestUri.AbsolutePath;
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(File.ReadAllBytes(published)) };
+            } }))
             {
                 ReleaseManifest publishedManifest = channel.GetLatestAsync(CancellationToken.None).GetAwaiter().GetResult();
                 ReleaseChannel.VerifyPackage(Path.Combine(root, "published-package.zip"), publishedManifest);
                 assert(publishedManifest.Version == ReleaseChannel.CurrentVersion.ToString(), "PowerShell-generated publication JSON and ZIP are accepted by the real update client");
+                assert(requestedPath == "/test/releases/releases/latest/download/update-fkp.json", "The renamed client requests its own manifest instead of the legacy client feed");
             }
         }
         var manifest = new ReleaseManifest { Schema = 1, Version = "9.0.0", Tag = "v9.0.0", Sha256 = new string('A', 64), SizeBytes = 100, Notes = "Test release" };

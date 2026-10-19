@@ -1,0 +1,8 @@
+{
+  "Schema": 1,
+  "Version": "1.6.0.0",
+  "Tag": "v1.6.0",
+  "Sha256": "D2B54C6EBEC89C0D74317BA55DB8636573FDE763EB95C5F3A867EBB66C75DA54",
+  "SizeBytes": 363177,
+  "Notes": "Server Bot Tracker is now FKP Server Monitor. To move to the renamed application, download and run FKPServerMonitor-Setup.exe from the official GitHub Releases page. Your server list is preserved. This feed retains the last package compatible with older clients."
+}

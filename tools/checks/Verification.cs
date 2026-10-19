@@ -407,7 +407,7 @@ internal static class Verification
 
     private static void VerifyLaunch()
     {
-        string executable = Path.Combine(root, "ServerBotTracker.exe");
+        string executable = Path.Combine(root, "FKPServerMonitor.exe");
         using (var process = Process.Start(new ProcessStartInfo(executable) { UseShellExecute = false, WorkingDirectory = root }))
         {
             bool idle = process.WaitForInputIdle(10000);
@@ -418,7 +418,7 @@ internal static class Verification
                 Thread.Sleep(100);
                 process.Refresh();
             }
-            bool title = process.MainWindowTitle.Contains("Server Bot Tracker");
+            bool title = process.MainWindowTitle.Contains("FKP Server Monitor");
             if (!process.HasExited) process.CloseMainWindow();
             bool closed = process.WaitForExit(5000);
             if (!closed) process.Kill();

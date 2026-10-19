@@ -5,16 +5,16 @@ using ServerBotTracker;
 
 internal static class InstallationScope
 {
-    public const string RegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\KumaServerBotTracker";
+    public const string RegistryPath = ProductIdentity.RegistryPath;
 
     public static string MachineShortcut
     {
-        get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), "Server Bot Tracker.lnk"); }
+        get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms), "FKP Server Monitor.lnk"); }
     }
 
     public static string UserShortcut
     {
-        get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Server Bot Tracker.lnk"); }
+        get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "FKP Server Monitor.lnk"); }
     }
 
     public static string InitialDirectory
@@ -42,7 +42,7 @@ internal static class InstallationScope
         {
             using (RegistryKey key = Registry.LocalMachine.OpenSubKey(RegistryPath))
             {
-                if (key == null || !String.Equals(key.GetValue("DisplayName") as string, "Server Bot Tracker", StringComparison.Ordinal)) return null;
+                if (key == null || !ProductIdentity.IsKnownProduct(key.GetValue("DisplayName") as string)) return null;
                 string value = key.GetValue("InstallLocation") as string;
                 return String.IsNullOrWhiteSpace(value) ? null : InstallLocation.Normalize(value);
             }
@@ -54,7 +54,11 @@ internal static class InstallationScope
 
     public static string CleanLegacyUserRegistration(string installedTarget, Action<string, string, string> remove)
     {
-        return CleanLegacyRegistration(installedTarget, Registry.CurrentUser, RegistryPath, UserShortcut, remove);
+        string shortcut = UserShortcut;
+        using (RegistryKey key = Registry.CurrentUser.OpenSubKey(RegistryPath))
+            if (key != null && String.Equals(key.GetValue("DisplayName") as string, ProductIdentity.LegacyDisplayName, StringComparison.Ordinal))
+                shortcut = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), ProductIdentity.LegacyDisplayName + ".lnk");
+        return CleanLegacyRegistration(installedTarget, Registry.CurrentUser, RegistryPath, shortcut, remove);
     }
 
     public static string CleanLegacyRegistration(string installedTarget, RegistryKey registryRoot, string registryPath, string shortcut, Action<string, string, string> remove)
@@ -64,7 +68,7 @@ internal static class InstallationScope
         {
             using (RegistryKey key = registryRoot.OpenSubKey(registryPath))
             {
-                if (key == null || !String.Equals(key.GetValue("DisplayName") as string, "Server Bot Tracker", StringComparison.Ordinal)) return String.Empty;
+                if (key == null || !ProductIdentity.IsKnownProduct(key.GetValue("DisplayName") as string)) return String.Empty;
                 legacy = key.GetValue("InstallLocation") as string;
             }
             string target = InstallLocation.Normalize(legacy);

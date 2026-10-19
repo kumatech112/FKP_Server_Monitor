@@ -22,7 +22,7 @@ internal sealed class SetupForm : Form
     private readonly Label detail = new Label { Name = "WizardDetail", Dock = DockStyle.Fill };
     private readonly TextBox status = new TextBox { Name = "WizardStatus", Dock = DockStyle.Fill, ReadOnly = true, Multiline = true, ScrollBars = ScrollBars.Vertical, BorderStyle = BorderStyle.None, BackColor = Color.White, TabStop = false };
     private readonly ProgressBar progress = new ProgressBar { Name = "WizardProgress", Dock = DockStyle.Fill };
-    private readonly CheckBox launch = new CheckBox { Name = "LaunchAfterSetup", Text = "เปิด Server Bot Tracker", AutoSize = true, Checked = true };
+    private readonly CheckBox launch = new CheckBox { Name = "LaunchAfterSetup", Text = "เปิด FKP Server Monitor", AutoSize = true, Checked = true };
     private readonly TableLayoutPanel content = new TableLayoutPanel();
     private readonly Panel location = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
     private readonly TextBox destination = new TextBox { Name = "InstallLocation", Dock = DockStyle.Fill };
@@ -40,7 +40,7 @@ internal sealed class SetupForm : Form
         uninstalling = uninstall;
         completionNotice = notice;
         Branding.ApplyTo(this);
-        Text = "Server Bot Tracker " + Assembly.GetExecutingAssembly().GetName().Version.ToString(3) + (uninstall ? " • ถอนการติดตั้ง" : " • ติดตั้ง");
+        Text = "FKP Server Monitor " + Assembly.GetExecutingAssembly().GetName().Version.ToString(3) + (uninstall ? " • ถอนการติดตั้ง" : " • ติดตั้ง");
         ClientSize = new Size(640, 420);
         Font = new Font("Tahoma", 9.5F);
         ForeColor = Color.Black;
@@ -155,15 +155,15 @@ internal sealed class SetupForm : Form
         primary.Text = complete ? "เสร็จสิ้น" : (failed ? "ลองอีกครั้ง" : (ready ? (uninstalling ? "ถอนการติดตั้ง" : "ติดตั้ง") : "ถัดไป >"));
         if (page == WizardPage.Welcome)
         {
-            title.Text = uninstalling ? "ยินดีต้อนรับสู่ตัวช่วย\nถอนการติดตั้ง" : "ยินดีต้อนรับสู่การติดตั้ง\nServer Bot Tracker";
+            title.Text = uninstalling ? "ยินดีต้อนรับสู่ตัวช่วย\nถอนการติดตั้ง" : "ยินดีต้อนรับสู่การติดตั้ง\nFKP Server Monitor";
             detail.Text = uninstalling
-                ? "ตัวช่วยนี้จะนำ Server Bot Tracker ออกจากเครื่องของคุณ\n\nกรุณาปิดโปรแกรมก่อนดำเนินการ\nรายการเซิร์ฟเวอร์และการตั้งค่าส่วนตัวจะยังคงอยู่\n\nคลิก ถัดไป เพื่อดำเนินการต่อ"
-                : "ตัวช่วยนี้จะแนะนำขั้นตอนการติดตั้ง Server Bot Tracker\n\nกรุณาปิดโปรแกรมก่อนเริ่มติดตั้ง เพื่อให้สามารถอัปเดตไฟล์โปรแกรมได้ครบถ้วน\n\nคลิก ถัดไป เพื่อดำเนินการต่อ";
+                ? "ตัวช่วยนี้จะนำ FKP Server Monitor ออกจากเครื่องของคุณ\n\nกรุณาปิดโปรแกรมก่อนดำเนินการ\nรายการเซิร์ฟเวอร์และการตั้งค่าส่วนตัวจะยังคงอยู่\n\nคลิก ถัดไป เพื่อดำเนินการต่อ"
+                : "ตัวช่วยนี้จะแนะนำขั้นตอนการติดตั้ง FKP Server Monitor\n\nกรุณาปิดโปรแกรมก่อนเริ่มติดตั้ง เพื่อให้สามารถอัปเดตไฟล์โปรแกรมได้ครบถ้วน\n\nคลิก ถัดไป เพื่อดำเนินการต่อ";
         }
         else if (selecting)
         {
             title.Text = "เลือกโฟลเดอร์ติดตั้ง";
-            detail.Text = "เริ่มต้นใน Program Files ของ Windows\nคลิก เรียกดู... เพื่อเลือกไดรฟ์หรือโฟลเดอร์หลัก\nตัวติดตั้งจะสร้างโฟลเดอร์ ServerBotTracker ให้\n\nหรือพิมพ์ตำแหน่งเต็ม เช่น D:\\ServerBotTracker\n\nคลิก ถัดไป เพื่อตรวจตำแหน่งก่อนติดตั้ง";
+            detail.Text = "เริ่มต้นใน Program Files ของ Windows\nคลิก เรียกดู... เพื่อเลือกไดรฟ์หรือโฟลเดอร์หลัก\nตัวติดตั้งจะสร้างโฟลเดอร์ FKP Server Monitor ให้\n\nหรือพิมพ์ตำแหน่งเต็ม เช่น D:\\FKP Server Monitor\n\nคลิก ถัดไป เพื่อตรวจตำแหน่งก่อนติดตั้ง";
         }
         else if (ready)
         {
@@ -180,7 +180,7 @@ internal sealed class SetupForm : Form
         else if (complete)
         {
             title.Text = uninstalling ? "ถอนการติดตั้งเสร็จสมบูรณ์" : "ติดตั้งเสร็จสมบูรณ์";
-            detail.Text = uninstalling ? "นำ Server Bot Tracker ออกจากเครื่องเรียบร้อยแล้ว\n\nคลิก เสร็จสิ้น เพื่อปิดตัวช่วย" : "พร้อมใช้งาน Server Bot Tracker\nเปิดโปรแกรมได้จาก Start menu\n\nคลิก เสร็จสิ้น เพื่อปิดตัวช่วย";
+            detail.Text = uninstalling ? "นำ FKP Server Monitor ออกจากเครื่องเรียบร้อยแล้ว\n\nคลิก เสร็จสิ้น เพื่อปิดตัวช่วย" : "พร้อมใช้งาน FKP Server Monitor\nเปิดโปรแกรมได้จาก Start menu\n\nคลิก เสร็จสิ้น เพื่อปิดตัวช่วย";
             status.Text = "รายการเซิร์ฟเวอร์และการตั้งค่าเดิมยังคงอยู่";
             string notice = completionNotice == null ? String.Empty : completionNotice();
             if (!String.IsNullOrEmpty(notice)) { status.Text += "\n" + notice; status.ScrollBars = ScrollBars.Vertical; }
@@ -216,7 +216,7 @@ internal sealed class SetupForm : Form
             try
             {
                 if (!uninstalling && launch.Checked)
-                    Process.Start(new ProcessStartInfo(Path.Combine(targetDirectory, "ServerBotTracker.exe")) { UseShellExecute = true, WorkingDirectory = targetDirectory });
+                    Process.Start(new ProcessStartInfo(Path.Combine(targetDirectory, "FKPServerMonitor.exe")) { UseShellExecute = true, WorkingDirectory = targetDirectory });
                 Close();
             }
             catch (Exception exception) { status.Text = "เปิดโปรแกรมไม่ได้: " + exception.Message; }
@@ -246,7 +246,7 @@ internal sealed class SetupForm : Form
 
     private void BrowseDirectory(object sender, EventArgs args)
     {
-        using (var picker = new FolderBrowserDialog { Description = "เลือกไดรฟ์หรือโฟลเดอร์หลัก ระบบจะเพิ่มโฟลเดอร์ ServerBotTracker ให้", ShowNewFolderButton = true })
+        using (var picker = new FolderBrowserDialog { Description = "เลือกไดรฟ์หรือโฟลเดอร์หลัก ระบบจะเพิ่มโฟลเดอร์ FKP Server Monitor ให้", ShowNewFolderButton = true })
         {
             if (Directory.Exists(destination.Text)) picker.SelectedPath = destination.Text;
             if (picker.ShowDialog(this) == DialogResult.OK)

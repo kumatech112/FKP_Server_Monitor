@@ -12,12 +12,12 @@ using ServerBotTracker;
 
 internal static class Setup
 {
-    private const string Product = "Server Bot Tracker";
-    private const string RegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\KumaServerBotTracker";
+    private const string Product = ProductIdentity.DisplayName;
+    private const string RegistryKey = ProductIdentity.RegistryPath;
     private static string removalNotice = String.Empty;
     private static string installationNotice = String.Empty;
     private static string Target { get { return InstallationScope.InitialDirectory; } }
-    private static string Shortcut { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Server Bot Tracker.lnk"); } }
+    private static string Shortcut { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "FKP Server Monitor.lnk"); } }
 
     [STAThread]
     private static int Main(string[] args)
@@ -64,7 +64,7 @@ internal static class Setup
 
     private static void StartUninstallWizard()
     {
-        string helper = Path.Combine(Path.GetTempPath(), "ServerBotTracker-uninstall-" + Guid.NewGuid().ToString("N") + ".exe");
+        string helper = Path.Combine(Path.GetTempPath(), "FKPServerMonitor-uninstall-" + Guid.NewGuid().ToString("N") + ".exe");
         File.Copy(Assembly.GetExecutingAssembly().Location, helper);
         using (Process launcher = Process.GetCurrentProcess())
         {
@@ -98,7 +98,7 @@ internal static class Setup
         if (!acquired)
         {
             mutex.Dispose();
-            throw new IOException("กรุณาปิด Server Bot Tracker ก่อนติดตั้งหรือถอนการติดตั้ง");
+            throw new IOException("กรุณาปิด FKP Server Monitor ก่อนติดตั้งหรือถอนการติดตั้ง");
         }
         return mutex;
     }
@@ -131,8 +131,9 @@ internal static class Setup
         using (Mutex instance = AcquireInstance())
         {
             string stage = Path.Combine(target, ".setup-" + Guid.NewGuid().ToString("N"));
-            string[] files = { "ServerBotTracker.exe", "ServerBotTracker.exe.config", "Uninstall.exe" };
+            string[] files = { "FKPServerMonitor.exe", "FKPServerMonitor.exe.config", "Uninstall.exe" };
             var applied = new System.Collections.Generic.List<string>();
+            var retired = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>>();
             RegistryBackup registration = null;
             byte[] shortcutBefore = null;
             bool metadataTouched = false;
@@ -144,6 +145,8 @@ internal static class Setup
                 InstallLocation.ValidateProductFiles(target);
                 var existing = new System.Collections.Generic.List<string>();
                 foreach (string file in files) if (File.Exists(Path.Combine(target, file))) existing.Add(Path.Combine(target, file));
+                var obsolete = LegacyFiles(target, shortcutPath, registryRoot, registryPath);
+                existing.AddRange(obsolete);
                 if (shortcutBefore != null) existing.Add(shortcutPath);
                 SetupFiles.CheckAvailable(existing);
                 Directory.CreateDirectory(stage);
@@ -166,21 +169,27 @@ internal static class Setup
                     applied.Add(file);
                     File.Copy(Path.Combine(stage, file), Path.Combine(target, file), true);
                 }
+                foreach (string file in obsolete)
+                {
+                    string backup = Path.Combine(stage, "retired-" + Path.GetFileName(file));
+                    File.Move(file, backup);
+                    retired.Add(new System.Collections.Generic.KeyValuePair<string, string>(file, backup));
+                }
                 metadataTouched = true;
-                DesktopShortcut.Create(shortcutPath, Path.Combine(target, "ServerBotTracker.exe"), target, Product);
+                DesktopShortcut.Create(shortcutPath, Path.Combine(target, "FKPServerMonitor.exe"), target, Product);
                 using (RegistryKey key = registryRoot.CreateSubKey(registryPath))
                 {
                     key.SetValue("DisplayName", Product);
-                    key.SetValue("DisplayVersion", FileVersionInfo.GetVersionInfo(Path.Combine(target, "ServerBotTracker.exe")).FileVersion);
-                    key.SetValue("Publisher", "Kuma");
+                    key.SetValue("DisplayVersion", FileVersionInfo.GetVersionInfo(Path.Combine(target, "FKPServerMonitor.exe")).FileVersion);
+                    key.SetValue("Publisher", "FKP");
                     key.SetValue("InstallLocation", target);
-                    key.SetValue("DisplayIcon", Path.Combine(target, "ServerBotTracker.exe"));
+                    key.SetValue("DisplayIcon", Path.Combine(target, "FKPServerMonitor.exe"));
                     key.SetValue("UninstallString", "\"" + Path.Combine(target, "Uninstall.exe") + "\" --uninstall");
                     key.SetValue("URLInfoAbout", "https://github.com/kumatech112/Server_Bot_Tracker");
                     key.SetValue("NoModify", 1, RegistryValueKind.DWord);
                     key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
                     key.SetValue("InstallDate", DateTime.Today.ToString("yyyyMMdd", CultureInfo.InvariantCulture));
-                    long installedBytes = new FileInfo(Path.Combine(target, "ServerBotTracker.exe")).Length + new FileInfo(Path.Combine(target, "Uninstall.exe")).Length + new FileInfo(Path.Combine(target, "ServerBotTracker.exe.config")).Length;
+                    long installedBytes = new FileInfo(Path.Combine(target, "FKPServerMonitor.exe")).Length + new FileInfo(Path.Combine(target, "Uninstall.exe")).Length + new FileInfo(Path.Combine(target, "FKPServerMonitor.exe.config")).Length;
                     key.SetValue("EstimatedSize", (int)((installedBytes + 1023) / 1024), RegistryValueKind.DWord);
                 }
             }
@@ -193,7 +202,10 @@ internal static class Setup
                     catch (Exception error) { errors.Add(error); }
                     try
                     {
-                        if (shortcutBefore == null) File.Delete(shortcutPath);
+                        if (shortcutBefore == null)
+                        {
+                            if (File.Exists(shortcutPath)) File.Delete(shortcutPath);
+                        }
                         else File.WriteAllBytes(shortcutPath, shortcutBefore);
                     }
                     catch (Exception error) { errors.Add(error); }
@@ -209,6 +221,11 @@ internal static class Setup
                         }
                         else File.Delete(Path.Combine(target, file));
                     }
+                    catch (Exception error) { errors.Add(error); }
+                }
+                for (int index = retired.Count - 1; index >= 0; index--)
+                {
+                    try { File.Move(retired[index].Value, retired[index].Key); }
                     catch (Exception error) { errors.Add(error); }
                 }
                 if (errors.Count > 1) { keepStage = true; throw new AggregateException("ติดตั้งไม่สำเร็จและคืนค่าได้ไม่ครบ กรุณาเก็บโฟลเดอร์สำรองไว้: " + stage, errors); }
@@ -229,6 +246,29 @@ internal static class Setup
                 finally { instance.ReleaseMutex(); }
             }
         }
+    }
+
+    private static System.Collections.Generic.List<string> LegacyFiles(string target, string shortcutPath, RegistryKey registryRoot, string registryPath)
+    {
+        var files = new System.Collections.Generic.List<string>();
+        string executable = Path.Combine(target, ProductIdentity.LegacyApplicationFile);
+        if (File.Exists(executable))
+        {
+            files.Add(executable);
+            string configuration = Path.Combine(target, ProductIdentity.LegacyConfigurationFile);
+            if (File.Exists(configuration)) files.Add(configuration);
+        }
+        using (RegistryKey key = registryRoot.OpenSubKey(registryPath))
+        {
+            if (key != null && ProductIdentity.IsKnownProduct(key.GetValue("DisplayName") as string)
+                && InstallLocation.Matches(key.GetValue("InstallLocation") as string, target)
+                && String.Equals(Path.GetFileName(shortcutPath), Product + ".lnk", StringComparison.OrdinalIgnoreCase))
+            {
+                string legacyShortcut = Path.Combine(Path.GetDirectoryName(shortcutPath), ProductIdentity.LegacyDisplayName + ".lnk");
+                if (File.Exists(legacyShortcut)) files.Add(legacyShortcut);
+            }
+        }
+        return files;
     }
 
     private static void Remove(string targetDirectory)
