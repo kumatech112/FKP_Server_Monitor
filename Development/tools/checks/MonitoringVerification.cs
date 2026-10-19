@@ -350,6 +350,10 @@ internal static class MonitoringVerification
         using (var form = new MainForm(store, false))
         {
             form.Show();
+            // Windows can constrain an initially shown window to the runner's display.
+            // Apply the reference client size after creation and account for display DPI.
+            float uiScale = form.DeviceDpi / 96f;
+            form.ClientSize = new Size((int)(1260 * uiScale), (int)(820 * uiScale));
             Application.DoEvents();
             var cards = (FlowLayoutPanel)Find(form, "ServerCards");
             var card = cards.Controls.OfType<ServerCard>().Single(item => item.ServerId == entry.Id);
@@ -363,7 +367,7 @@ internal static class MonitoringVerification
             assert(cards.Visible && !grid.Visible, "Top navigation restores the dashboard view");
             assert(cards.Controls.OfType<ServerCard>().All(item => item.Height <= form.DeviceDpi / 96f * 90)
                 && cards.Controls.OfType<ServerCard>().Select(item => item.Left).Distinct().Count() >= 6,
-                "Compact dashboard fits at least six small cards per row at the default window size");
+                "Compact dashboard fits at least six small cards per row at the reference window size");
             assert(card.StatusText == "ยังไม่ตรวจ", "An unchecked compact card cannot falsely report normal");
             var center = (NotificationCenter)typeof(MainForm).GetField("notifications", Instance).GetValue(form);
             MethodInfo publish = typeof(MainForm).GetMethod("PublishServerAlert", Instance);
@@ -409,7 +413,7 @@ internal static class MonitoringVerification
             }
             typeof(MainForm).GetMethod("UpdateTotals", Instance).Invoke(form, null);
             Capture(form, Path.Combine(root, "compact-dashboard.png"));
-            form.ClientSize = new Size(1900, 960);
+            form.ClientSize = new Size((int)(1900 * uiScale), (int)(960 * uiScale));
             Application.DoEvents();
             assert(cards.Controls.OfType<ServerCard>().Select(item => item.Left).Distinct().Count() >= 9,
                 "Widening the dashboard adds columns instead of inflating cards or limiting them to four columns");

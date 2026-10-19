@@ -4,7 +4,7 @@ The dashboard now shows small tiles containing only the server name and health s
 
 ## Presentation and data flow
 
-The product identity and navigation share a compact top bar. Four counters use a thin strip. Existing actions/search/automatic-check controls remain above the monitoring area, following the owner's marked workspace. Tiles are 84 pixels tall at 100% display scaling, with adaptive columns and scrolling; widening the window adds columns instead of enlarging tiles. The default window fits six columns; a 1900-pixel client area fits nine. The unused graph rendering and sample-history dictionary have been removed.
+The product identity and navigation share a compact top bar. Four counters use a thin strip. Existing actions/search/automatic-check controls remain above the monitoring area, following the owner's marked workspace. Tiles are 84 pixels tall at 100% display scaling, with adaptive columns and scrolling; widening the window adds columns instead of enlarging tiles. A 1260-pixel reference client area fits six columns; a 1900-pixel reference client area fits nine at 100% scaling. Actual columns adapt to available window space. The unused graph rendering and sample-history dictionary have been removed.
 
 The existing results dictionary still feeds both views. `ServerResult.Health` keeps its previous semantics: disagreement between enabled Ping/SQL checks is a problem, both passing is normal, and both failing is disconnected. Missing results stay pending. Card labels simplify the presentation without changing network checks or notification thresholds. Click/Ctrl-select and double-click editing remain connected to the shared server selection. Listing retains detailed results and tooltips.
 
@@ -34,7 +34,7 @@ The existing results dictionary still feeds both views. `ServerResult.Health` ke
 
 The unchanged 1.8.0 baseline passed **173 checks** before edits. The rebuilt 1.8.1 app and installer passed **178 checks** afterward, including the retained monitoring, SQL, alert delivery, configuration, installation/removal, rollback and update checks. Existing GUI checks now also exercise compact pending/normal/problem/disconnected labels, shared selection, six/nine-column layouts, and the separate Listing view. Both layouts were rendered and visually reviewed with isolated UI fixture data. The actual packaged entry point was launched.
 
-Evidence: `Archive/verification/verification-20261019-105107-c2726280/verification.txt`.
+Evidence: `Archive/verification/verification-20261019-105400-37e80a84/verification.txt`.
 Screenshots: `compact-dashboard.png`, `compact-dashboard-wide.png`, `listing-wide.png`. These screenshots contain test entries, not the user's saved server list. No production accounts/endpoints were used or modified. The local process is not elevated; administrator-only operations remain the CI runner's responsibility.
 
 | Final local artifact | SHA-256 |
@@ -46,3 +46,5 @@ Screenshots: `compact-dashboard.png`, `compact-dashboard-wide.png`, `listing-wid
 Generated programs/evidence stay in Program/Archive and remain excluded from Git. The Thai guide in Program matches the maintained source guide. The portable archive still contains exactly EXE + runtime config. A source push alone does not publish an update to installed users.
 
 Short commit message: `feat: add compact CCTV-style server dashboard`
+
+The density fixture explicitly sets reference sizes after window creation and scales them with display DPI. This avoids a smaller CI display constraining the initial window and producing a false density failure. Production layout behavior is unchanged by this test correction.
