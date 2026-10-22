@@ -28,6 +28,7 @@ internal static class MonitoringVerification
         VerifyDeliveryAsync().GetAwaiter().GetResult();
         VerifyDialogs(root);
         VerifyTransitions(root);
+        VerifyDashboardFilters(root);
     }
 
     private static ServerEntry SqlServer()
@@ -340,6 +341,91 @@ internal static class MonitoringVerification
                 && ((TextBox)Find(dialog, "NtfyToken")).UseSystemPasswordChar,
                 "Alert settings can be prepared with channels disabled and token input protected");
             dialog.Close();
+        }
+    }
+
+    private static void VerifyDashboardFilters(string root)
+    {
+        string path = Path.Combine(root, "dashboard-filter-fixture", "servers.json");
+        var configuration = new AppConfiguration { TimeoutMs = 1000 };
+        foreach (string name in new[] { "กลุ่มปกติ", "SQL ต้องตรวจสอบ", "เครื่องมีปัญหา", "ยังไม่ตรวจ", "รอผล SQL" })
+            configuration.Servers.Add(new ServerEntry { Name = name, Host = "127.0.0.1" });
+        configuration.Servers[2].Host = "no-such-filter-host.invalid";
+        var store = new ConfigurationStore(path);
+        store.Save(configuration);
+        string savedConfiguration = File.ReadAllText(path);
+        using (var form = new MainForm(store, false))
+        {
+            Exception failure = null;
+            form.Shown += async delegate
+            {
+                try
+                {
+                    var results = (Dictionary<string, ServerResult>)typeof(MainForm).GetField("results", Instance).GetValue(form);
+                    string normal = configuration.Servers[0].Id;
+                    string mixed = configuration.Servers[1].Id;
+                    string down = configuration.Servers[2].Id;
+                    string pending = configuration.Servers[4].Id;
+                    DateTime previousCheck = DateTime.Now.AddMinutes(-5);
+                    results[normal] = new ServerResult { ServerId = normal, CheckedAt = previousCheck, Ping = new ProbeResult { Success = true } };
+                    results[mixed] = new ServerResult { ServerId = mixed, CheckedAt = previousCheck, Ping = new ProbeResult { Success = true },
+                        DatabaseEnabled = true, Database = new ProbeResult { Success = false } };
+                    results[down] = new ServerResult { ServerId = down, CheckedAt = previousCheck, Ping = new ProbeResult { Success = false } };
+                    results[pending] = new ServerResult { ServerId = pending, CheckedAt = previousCheck, Ping = new ProbeResult { Success = true }, DatabaseEnabled = true };
+                    typeof(MainForm).GetMethod("RenderRows", Instance).Invoke(form, null);
+                    var cards = (FlowLayoutPanel)Find(form, "ServerCards");
+                    var grid = (DataGridView)Find(form, "ServerGrid");
+                    var filters = Enumerable.Range(0, 4).Select(index => (Button)Find(form, "DashboardFilter" + index)).ToArray();
+                    assert(cards.Controls.OfType<ServerCard>().Count(item => item.Visible) == 5
+                        && filters[0].Text == "ทั้งหมด (5)", "Dashboard starts with every server and the requested clickable Thai filter labels");
+                    filters[1].PerformClick();
+                    assert(cards.Controls.OfType<ServerCard>().Where(item => item.Visible).Single().ServerId == normal
+                        && filters[1].Text == "เชื่อมต่อปกติ (1)", "Normal filter includes only completed healthy results");
+                    filters[2].PerformClick();
+                    assert(cards.Controls.OfType<ServerCard>().Count(item => item.Visible) == 3
+                        && filters[2].Text == "ต้องตรวจสอบ (3)", "Review filter includes mixed SQL/Ping, unchecked and pending results without calling them healthy");
+                    filters[3].PerformClick();
+                    assert(cards.Controls.OfType<ServerCard>().Where(item => item.Visible).Single().ServerId == down
+                        && filters[3].Text == "มีปัญหา (1)", "Problem filter includes failed connectivity results");
+                    var search = (TextBox)Find(form, "SearchBox");
+                    search.Text = "รอผล";
+                    assert(!cards.Controls.OfType<ServerCard>().Any(item => item.Visible) && Find(form, "EmptyDashboard").Visible,
+                        "An empty combination of status filter and search displays a clear empty state");
+                    filters[2].PerformClick();
+                    assert(cards.Controls.OfType<ServerCard>().Where(item => item.Visible).Single().ServerId == pending
+                        && filters[2].Text == "ต้องตรวจสอบ (3)", "Search combines with the selected group while counters retain global totals");
+                    search.Text = "";
+                    grid.Rows[0].Selected = true;
+                    filters[3].PerformClick();
+                    assert(grid.SelectedRows.Count == 0, "Changing status groups clears selections so hidden servers are not selected accidentally");
+                    filters[2].PerformClick();
+                    results[mixed] = new ServerResult { ServerId = mixed, CheckedAt = DateTime.Now, Ping = new ProbeResult { Success = true },
+                        DatabaseEnabled = true, Database = new ProbeResult { Success = true } };
+                    typeof(MainForm).GetMethod("UpdateCard", Instance).Invoke(form, new object[] { results[mixed] });
+                    typeof(MainForm).GetMethod("UpdateTotals", Instance).Invoke(form, null);
+                    assert(cards.Controls.OfType<ServerCard>().Count(item => item.Visible) == 2 && filters[2].Text == "ต้องตรวจสอบ (2)",
+                        "Live recovery immediately removes a server from the review filter and updates its count");
+                    Capture(form, Path.Combine(root, "dashboard-review-filter.png"));
+                    typeof(MainForm).GetMethod("ShowDashboard", Instance).Invoke(form, new object[] { false });
+                    assert(grid.Visible && grid.Rows.Count == 5 && !cards.Visible, "Listing remains independent of Dashboard status filters");
+                    filters[1].PerformClick();
+                    assert(cards.Visible && !grid.Visible, "Clicking a status group from Listing opens the Dashboard group");
+                    Task checking = form.RunChecksAsync(false);
+                    filters[3].PerformClick();
+                    await checking;
+                    assert(results.Count == 5 && results[down].CheckedAt > previousCheck && !results[down].Ping.Success
+                        && results.Values.Count(item => item.Health == "healthy") == 4,
+                        "Check All still performs real checks for hidden servers while the filter can change during monitoring");
+                    assert(File.ReadAllText(path) == savedConfiguration && !File.Exists(path + ".bak"),
+                        "Dashboard filters never rewrite the server list, SQL settings or configuration schema");
+                    filters[0].PerformClick();
+                    Capture(form, Path.Combine(root, "dashboard-all-filter.png"));
+                }
+                catch (Exception error) { failure = error; }
+                finally { form.Close(); }
+            };
+            Application.Run(form);
+            if (failure != null) throw failure;
         }
     }
 

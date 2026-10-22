@@ -10,7 +10,10 @@ namespace ServerBotTracker
     {
         private readonly FlowLayoutPanel cards = new FlowLayoutPanel { Name = "ServerCards", Dock = DockStyle.Fill, AutoScroll = true, WrapContents = true, Margin = Padding.Empty };
         private readonly Dictionary<string, ServerCard> cardViews = new Dictionary<string, ServerCard>();
-        private readonly Label[] summaryValues = new Label[4];
+        private readonly Button[] summaryFilters = new Button[4];
+        private readonly string[] dashboardFilterLabels = { "ทั้งหมด", "เชื่อมต่อปกติ", "ต้องตรวจสอบ", "มีปัญหา" };
+        private int dashboardFilter;
+        private Label emptyDashboard;
         private readonly Button dashboardView = Theme.Button("แดชบอร์ด", true);
         private readonly Button listView = Theme.Button("รายการเซิร์ฟเวอร์", false);
         private readonly Button deliverySettingsButton = Theme.Button("ตั้งค่าการแจ้งเตือน", false);
@@ -50,24 +53,74 @@ namespace ServerBotTracker
             if (showCards) cards.BringToFront(); else grid.BringToFront();
             DashboardStyle.StyleButton(dashboardView, showCards); DashboardStyle.StyleButton(listView, !showCards);
             if (showCards && !busy) progress.Text = "ภาพรวมสถานะเซิร์ฟเวอร์";
+            if (showCards) ApplyDashboardFilter();
+            UpdateTotals();
             ShowSelectedDetails();
         }
 
         private Control BuildSummary()
         {
             var summary = new TableLayoutPanel { Name = "StatusSummary", Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1, Margin = new Padding(0, 0, 0, 6) };
-            string[] labels = { "ทั้งหมด", "ปกติ", "มีปัญหา", "เชื่อมต่อไม่ได้" };
-            Color[] colors = { DashboardStyle.Blue, DashboardStyle.Green, DashboardStyle.Amber, DashboardStyle.Red };
             for (int index = 0; index < 4; index++)
             {
                 summary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
-                var tile = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, BackColor = DashboardStyle.Surface, Margin = new Padding(0, 0, index == 3 ? 0 : 8, 0) };
-                tile.Controls.Add(new Label { Text = labels[index], ForeColor = DashboardStyle.Muted, Margin = new Padding(12, 10, 6, 0), AutoSize = true });
-                summaryValues[index] = new Label { Text = "0", Font = new Font("Tahoma", 13F, FontStyle.Bold), ForeColor = colors[index], Margin = new Padding(0, 6, 0, 0), AutoSize = true };
-                tile.Controls.Add(summaryValues[index]);
-                summary.Controls.Add(tile, index, 0);
+                int filterIndex = index;
+                Button button = Theme.Button(dashboardFilterLabels[index], false);
+                button.Name = "DashboardFilter" + index;
+                button.Dock = DockStyle.Fill;
+                button.Margin = new Padding(0, 0, index == 3 ? 0 : 8, 0);
+                button.Click += delegate { SetDashboardFilter(filterIndex); };
+                DashboardStyle.StyleButton(button, index == dashboardFilter);
+                summaryFilters[index] = button;
+                summary.Controls.Add(button, index, 0);
             }
             return summary;
+        }
+
+        private void SetDashboardFilter(int index)
+        {
+            if (index < 0 || index >= dashboardFilterLabels.Length)
+                throw new ArgumentOutOfRangeException("index");
+            dashboardFilter = index;
+            grid.ClearSelection();
+            for (int item = 0; item < summaryFilters.Length; item++)
+                DashboardStyle.StyleButton(summaryFilters[item], item == dashboardFilter);
+            ShowDashboard(true);
+        }
+
+        private bool MatchesDashboardFilter(string serverId)
+        {
+            if (dashboardFilter == 0) return true;
+            ServerResult result;
+            string health = results.TryGetValue(serverId, out result) ? result.Health : "pending";
+            if (dashboardFilter == 1) return health == "healthy";
+            if (dashboardFilter == 2) return health == "warning" || health == "pending";
+            return health == "down";
+        }
+
+        private void ApplyDashboardFilter()
+        {
+            bool anyMatch = false;
+            cards.SuspendLayout();
+            try
+            {
+                foreach (KeyValuePair<string, ServerCard> item in cardViews)
+                {
+                    bool matches = MatchesDashboardFilter(item.Key);
+                    item.Value.Visible = matches;
+                    if (matches) anyMatch = true;
+                    DataGridViewRow row;
+                    if (!matches && cards.Visible && visibleRows.TryGetValue(item.Key, out row) && row.Selected)
+                        row.Selected = false;
+                }
+                if (emptyDashboard != null)
+                {
+                    emptyDashboard.Text = configuration.Servers.Count == 0 ? "เพิ่มเซิร์ฟเวอร์เพื่อเริ่มติดตาม"
+                        : dashboardFilter == 0 ? "ไม่พบรายการที่ตรงกับคำค้นหา" : "ไม่พบเซิร์ฟเวอร์ในกลุ่มที่เลือก";
+                    emptyDashboard.Visible = !anyMatch;
+                }
+            }
+            finally { cards.ResumeLayout(); }
         }
 
         private void RenderCards()
@@ -88,9 +141,10 @@ namespace ServerBotTracker
                     card.EditRequested += delegate(object sender, EventArgs args) { if (!busy) { SelectCard((ServerCard)sender, true); EditServer(sender, args); } };
                     cardViews[id] = card; cards.Controls.Add(card);
                 }
-                if (cardViews.Count == 0)
-                    cards.Controls.Add(new Label { Name = "EmptyDashboard", Text = configuration.Servers.Count == 0 ? "เพิ่มเซิร์ฟเวอร์เพื่อเริ่มติดตาม" : "ไม่พบรายการที่ตรงกับคำค้นหา", ForeColor = DashboardStyle.Muted, AutoSize = true, Margin = new Padding(12, 24, 0, 0) });
+                emptyDashboard = new Label { Name = "EmptyDashboard", ForeColor = DashboardStyle.Muted, AutoSize = true, Margin = new Padding(12, 24, 0, 0) };
+                cards.Controls.Add(emptyDashboard);
                 ResizeCards();
+                ApplyDashboardFilter();
             }
             finally { cards.ResumeLayout(); }
         }
@@ -132,6 +186,7 @@ namespace ServerBotTracker
         {
             ServerCard card;
             if (cardViews.TryGetValue(result.ServerId, out card)) card.UpdateResult(result);
+            ApplyDashboardFilter();
         }
     }
 }

@@ -126,7 +126,7 @@ internal static class InstallationScopeVerification
                 try { channel.GetLatestAsync(System.Threading.CancellationToken.None).GetAwaiter().GetResult(); }
                 catch (System.Net.Http.HttpRequestException error)
                 {
-                    if (ReleaseChannel.CurrentVersion != new Version(1, 8, 1, 0) || !error.Message.Contains("404")) throw;
+                    if (ReleaseChannel.CurrentVersion != new Version(1, 8, 2, 0) || !error.Message.Contains("404")) throw;
                     liveAvailable = false;
                     Console.WriteLine("SKIP: The first renamed public release is still unpublished in 1.8; update-fkp.json is unavailable. Live official-feed elevation remains unverified. Testing the packaged update in Program Files instead.");
                 }

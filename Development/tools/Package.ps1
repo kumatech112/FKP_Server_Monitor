@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Notes = 'Compact CCTV-style dashboard cards show only server names and health status. More cards fit on screen; detailed IP, SQL and response-time results remain available in Listing. Monitoring, Outlook and ntfy settings are preserved.')
+param([string]$Notes = 'Click Dashboard counters to filter all, normal, review or problem servers. Pending and mixed Ping/SQL results stay in review. Search combines with the selected group; Check All, detailed Listing, SQL monitoring and alert delivery remain independent.')
 
 $ErrorActionPreference = 'Stop'
 $developmentRoot = Split-Path -Parent $PSScriptRoot

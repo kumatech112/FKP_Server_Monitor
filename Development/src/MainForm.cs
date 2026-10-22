@@ -241,10 +241,12 @@ private FlowLayoutPanel BuildToolbar()
         {
             int passed = results.Values.Count(result => result.Health == "healthy");
             int failed = results.Values.Count(result => result.Health == "down");
-            int warning = results.Values.Count(result => result.Health == "warning");
-            int[] counts = { configuration.Servers.Count, passed, warning, failed };
-            for (int index = 0; index < counts.Length; index++) if (summaryValues[index] != null) summaryValues[index].Text = counts[index].ToString(CultureInfo.InvariantCulture);
-            totals.Text = String.Format("ทั้งหมด {0}     ปกติ {1}     มีปัญหา {2}     เชื่อมต่อไม่ได้ {3}     ยังไม่ตรวจ {4}     แสดง {5}", configuration.Servers.Count, passed, warning, failed, configuration.Servers.Count - results.Count, grid.Rows.Count);
+            int[] counts = { configuration.Servers.Count, passed, configuration.Servers.Count - passed - failed, failed };
+            for (int index = 0; index < counts.Length; index++)
+                if (summaryFilters[index] != null)
+                    summaryFilters[index].Text = dashboardFilterLabels[index] + " (" + counts[index].ToString(CultureInfo.InvariantCulture) + ")";
+            int shown = cards.Visible ? cardViews.Keys.Count(MatchesDashboardFilter) : grid.Rows.Count;
+            totals.Text = String.Format("ทั้งหมด {0}     ปกติ {1}     ต้องตรวจสอบ {2}     มีปัญหา {3}     ยังไม่ตรวจ {4}     แสดง {5}", configuration.Servers.Count, passed, counts[2], failed, configuration.Servers.Count - results.Count, shown);
         }
 
         private void ShowSelectedDetails()

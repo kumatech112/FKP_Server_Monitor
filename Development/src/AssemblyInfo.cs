@@ -5,6 +5,6 @@ using System.Runtime.Versioning;
 [assembly: AssemblyDescription("Thai server and SQL Server dashboard with Outlook and ntfy alerts")]
 [assembly: AssemblyCompany("FKP")]
 [assembly: AssemblyProduct("FKP Server Monitor")]
-[assembly: AssemblyVersion("1.8.1.0")]
-[assembly: AssemblyFileVersion("1.8.1.0")]
+[assembly: AssemblyVersion("1.8.2.0")]
+[assembly: AssemblyFileVersion("1.8.2.0")]
 [assembly: TargetFramework(".NETFramework,Version=v4.8")]
